@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Daily Spend Log</title>
+<meta name="description" content="Daily expense log. Your entries stay on this phone.">
+<meta name="theme-color" content="#F1F4EF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1411" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Spend Log">
+<style>
+/* Layout: summary and add form on the left, day-by-day log on the right; one column on phones. */
+:root{
+  --bg:#F1F4EF; --surface:#FFFFFF; --surface-2:#E6EBE4; --fg:#15201A; --muted:#566259; --line:#D3DACF;
+  --accent:#0D6A56; --accent-ink:#FFFFFF; --accent-soft:#D5EBE2;
+  --warn:#8F5B00; --warn-soft:#F5E6C6; --bad:#AE3126; --bad-soft:#F5D8D3;
+  --font-body:system-ui,-apple-system,'Segoe UI',Roboto,'Noto Sans',sans-serif;
+  --font-num:ui-monospace,SFMono-Regular,'Roboto Mono',Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1411; --surface:#151D19; --surface-2:#1E2923; --fg:#E6EDE8; --muted:#9BAAA1; --line:#2A3730;
+    --accent:#4FC3A3; --accent-ink:#05221A; --accent-soft:#18372E;
+    --warn:#E2B04C; --warn-soft:#3A2E13; --bad:#F2897C; --bad-soft:#40201C;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1411; --surface:#151D19; --surface-2:#1E2923; --fg:#E6EDE8; --muted:#9BAAA1; --line:#2A3730;
+  --accent:#4FC3A3; --accent-ink:#05221A; --accent-soft:#18372E;
+  --warn:#E2B04C; --warn-soft:#3A2E13; --bad:#F2897C; --bad-soft:#40201C;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{
+  margin:0;-webkit-text-size-adjust:100%;
+  background:var(--bg);color:var(--fg);font:15px/1.5 var(--font-body);
+  padding-top:max(20px,env(safe-area-inset-top,0px));
+  padding-bottom:max(56px,calc(28px + env(safe-area-inset-bottom,0px)));
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+h1,h2,h3,p{margin:0}
+h1{font-size:24px;line-height:1.2;font-weight:700;text-wrap:balance}
+h2{font-size:17px;font-weight:600;text-wrap:balance}
+h3{font-size:15px;font-weight:600}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.app{max-width:1040px;margin:0 auto;display:grid;gap:16px}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px 24px}
+.top>div{min-width:0}
+.sub{margin-top:4px}
+.monthnav{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.mlabel{min-width:132px;text-align:center;font-weight:600}
+.grid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:900px){.grid{grid-template-columns:minmax(0,380px) minmax(0,1fr);align-items:start;gap:24px}}
+.col{display:grid;gap:16px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+/* inputs and buttons */
+label,legend{font-size:13px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;padding:0}
+input[type=text],input[type=date],select{
+  font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;
+  padding:9px 10px;min-height:42px;width:100%;min-width:0;
+}
+input::placeholder{color:var(--muted);opacity:.8}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+fieldset{border:0;padding:0;margin:0;min-width:0}
+.field{display:grid;gap:0;min-width:0}
+.card form,.card .stack{display:grid;gap:14px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.money{position:relative;min-width:0}
+.money>span{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-family:var(--font-num);pointer-events:none}
+.money>input{padding-left:28px;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.money.suffix>span{left:auto;right:11px}
+.money.suffix>input{padding-left:10px;padding-right:28px}
+.btn{
+  font:600 15px/1 var(--font-body);background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);
+  border-radius:8px;padding:12px 18px;min-height:44px;cursor:pointer;
+}
+.btn.ghost{background:transparent;color:var(--fg);border-color:var(--line)}
+.btn.sm{min-height:36px;padding:8px 12px;font-size:14px}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.icon{
+  font:600 20px/1 var(--font-body);background:var(--surface);color:var(--fg);border:1px solid var(--line);
+  border-radius:8px;width:40px;height:40px;cursor:pointer;
+}
+.link{font:inherit;font-size:14px;background:none;border:0;color:var(--accent);padding:6px 8px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.link.danger{color:var(--bad)}
+.actions{display:flex;flex-wrap:wrap;gap:10px}
+.hint{font-size:13px;color:var(--muted);margin-top:6px}
+.err{color:var(--bad);font-size:14px;font-weight:600;min-height:0}
+.err:empty{display:none}
+.notice{background:var(--warn-soft);color:var(--fg);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;font-size:14px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px}
+.backup{display:grid;gap:10px;padding-top:16px;border-top:1px solid var(--line)}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  font:inherit;font-weight:500;color:var(--fg);background:var(--bg);border:1px solid var(--line);
+  border-radius:8px;padding:8px 12px;min-height:42px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;
+}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tag{font-size:11px;letter-spacing:.04em;text-transform:uppercase;font-weight:600;opacity:.75}
+.sharebox{display:grid;gap:8px;padding:12px;border:1px dashed var(--line);border-radius:8px}
+.sharerow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.check{display:inline-flex;align-items:center;gap:8px;color:var(--fg);font-size:15px;font-weight:500;margin:0;cursor:pointer}
+.check input{width:18px;height:18px;margin:0;accent-color:var(--accent)}
+.sharepct{display:flex;align-items:center;gap:8px;margin:0}
+.sharepct .money{width:96px}
+
+/* summary */
+.summary{display:grid;gap:12px}
+.bigrow{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.big{font:500 44px/1 var(--font-num);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.of{color:var(--muted);font-size:14px}
+.meter{position:relative;height:10px;background:var(--surface-2);border-radius:999px;margin-block:6px}
+.meter .fill{height:100%;width:0;border-radius:999px;background:var(--accent)}
+.meter.warn .fill{background:var(--warn)}
+.meter.bad .fill{background:var(--bad)}
+.meter .tick{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--fg);border-radius:1px}
+.statusrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:600;background:var(--surface-2);color:var(--muted)}
+.pill.good{background:var(--accent-soft);color:var(--accent)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.groups{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:10px}
+.groups li{display:grid;gap:4px}
+.gl{display:flex;justify-content:space-between;gap:12px;font-size:14px}
+.gbar{height:4px;background:var(--surface-2);border-radius:2px}
+.gbar i{display:block;height:100%;background:var(--accent);border-radius:2px;opacity:.8}
+.amt{font-family:var(--font-num);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+
+/* log */
+.logbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
+.tabs{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.tabs button{font:inherit;font-weight:500;padding:8px 16px;background:transparent;border:0;color:var(--muted);cursor:pointer;min-height:40px}
+.tabs button[aria-selected="true"]{background:var(--surface-2);color:var(--fg);font-weight:700}
+.day{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.dayhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-weight:700}
+.dayhead .today{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-left:8px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:4px 12px;padding:8px 0}
+.what{min-width:0}
+.name{font-weight:500;overflow-wrap:anywhere}
+.meta{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.acts{display:flex;gap:0}
+@media (max-width:520px){
+  .row{grid-template-columns:minmax(0,1fr) auto}
+  .acts{grid-column:1/-1;justify-content:flex-start;margin-left:-8px}
+}
+.empty{border:1px dashed var(--line);border-radius:10px;padding:24px 16px;display:grid;gap:4px;color:var(--muted)}
+.empty-title{color:var(--fg);font-weight:600}
+.paper{
+  font:13px/1.6 var(--font-num);background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  padding:16px;margin:10px 0 0;overflow-x:auto;white-space:pre;color:var(--fg);
+}
+.exports{display:flex;flex-wrap:wrap;gap:8px}
+
+/* settings */
+.itemrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 0;border-top:1px solid var(--line)}
+.itemrow .n{flex:2 1 180px;min-width:0}
+.itemrow .g{flex:1 1 140px;min-width:0}
+.itemrow .sp{width:92px}
+
+.toastwrap{
+  position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;pointer-events:none;
+  padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+}
+.toast{
+  pointer-events:auto;background:var(--fg);color:var(--bg);border-radius:10px;padding:10px 14px;font-size:14px;
+  display:flex;align-items:center;gap:12px;max-width:100%;box-shadow:0 6px 24px rgba(0,0,0,.25);
+}
+.toast .link{color:var(--bg);font-weight:700}
+@media (prefers-reduced-motion:no-preference){.meter .fill,.gbar i{transition:width .4s ease}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <h1>Daily Spend Log</h1>
+      <p class="sub muted">What you spend each day, in rupees. Your savings stay out of this page.</p>
+    </div>
+    <div class="monthnav">
+      <button class="icon" id="prevM" type="button" aria-label="Previous month">&lsaquo;</button>
+      <div class="mlabel" id="monthLabel" aria-live="polite"></div>
+      <button class="icon" id="nextM" type="button" aria-label="Next month">&rsaquo;</button>
+      <button class="link" id="thisMonth" type="button" hidden>This month</button>
+      <button class="btn ghost sm" id="settingsBtn" type="button" aria-expanded="false" aria-controls="settings">Settings</button>
+    </div>
+  </header>
+
+  <div class="notice" id="notice" role="status" hidden></div>
+
+  <section class="card" id="settings" aria-labelledby="setH" hidden>
+    <div class="stack">
+      <h2 id="setH">Settings</h2>
+      <div class="field">
+        <label for="budgetInput">Monthly spending budget</label>
+        <div class="money"><span aria-hidden="true">&#8377;</span><input id="budgetInput" type="text" inputmode="numeric" autocomplete="off"></div>
+        <p class="hint">Take-home pay minus what you save. The starting value is 10,500, which is 15,000 pay minus a 4,500 savings goal. Change it when your pay changes.</p>
+      </div>
+      <div>
+        <h3>Items you buy</h3>
+        <p class="hint">These become the quick buttons on the add form. Mark an item shared if you split it with your roommate. Your share is what counts as your spending.</p>
+        <div id="itemRows"></div>
+        <datalist id="groupList"></datalist>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" id="addItem" type="button">Add item</button>
+      </div>
+      <p class="hint">Changes save on their own.</p>
+      <div class="backup">
+        <h3>Backup</h3>
+        <p class="hint" id="backupInfo" style="margin:0"></p>
+        <div class="actions">
+          <button class="btn" id="exportBtn" type="button">Export backup</button>
+          <button class="btn ghost" id="importBtn" type="button">Import backup</button>
+          <input type="file" id="importFile" accept="application/json,.json" hidden>
+        </div>
+        <p class="hint" style="margin:0">Your entries live only on this phone. Export a backup file every week and keep it in your email or Drive. Importing a backup replaces what is on this phone, and you get a few seconds to undo it.</p>
+      </div>
+    </div>
+  </section>
+
+  <main class="grid">
+    <div class="col">
+      <section class="card summary" aria-labelledby="sumH">
+        <h2 id="sumH" class="eyebrow">Your spending this month</h2>
+        <div class="bigrow">
+          <div class="big" id="bigNum">&#8377;0</div>
+          <div class="of" id="ofBudget"></div>
+        </div>
+        <div class="meter" id="meter" role="img" aria-label="Budget used"><div class="fill" id="fill"></div><div class="tick" id="tick" hidden></div></div>
+        <div class="statusrow"><span class="pill" id="statusPill"></span><span class="small muted" id="perDay"></span></div>
+        <p class="small muted" id="legend"></p>
+        <ul class="groups" id="groups"></ul>
+        <p class="small muted" id="avgLine"></p>
+        <p class="small muted" id="roommateLine"></p>
+      </section>
+
+      <form class="card" id="entryForm" novalidate>
+        <h2 id="formTitle">Add an expense</h2>
+        <fieldset class="field">
+          <legend>What did you buy?</legend>
+          <div class="chips" id="chips"></div>
+        </fieldset>
+        <div class="field" id="otherWrap" hidden>
+          <label for="otherName">Item name</label>
+          <input id="otherName" type="text" maxlength="40" autocomplete="off" placeholder="e.g. Auto fare">
+        </div>
+        <div class="two">
+          <div class="field">
+            <label for="amount">Amount paid</label>
+            <div class="money"><span aria-hidden="true">&#8377;</span><input id="amount" type="text" inputmode="decimal" autocomplete="off" placeholder="0"></div>
+          </div>
+          <div class="field">
+            <label for="date">Date</label>
+            <input id="date" type="date">
+          </div>
+        </div>
+        <div class="sharebox">
+          <div class="sharerow">
+            <label class="check" for="sharedChk"><input type="checkbox" id="sharedChk"> Shared with my roommate</label>
+            <label class="sharepct" for="shareInput">My share
+              <span class="money suffix"><input id="shareInput" type="text" inputmode="numeric" value="50" autocomplete="off"><span aria-hidden="true">%</span></span>
+            </label>
+          </div>
+          <p class="hint" id="preview" aria-live="polite" style="margin:0"></p>
+        </div>
+        <div class="field">
+          <label for="note">Note (optional)</label>
+          <input id="note" type="text" maxlength="80" autocomplete="off" placeholder="e.g. 3 packs">
+        </div>
+        <p class="err" id="formError" role="alert"></p>
+        <div class="actions">
+          <button class="btn" id="submitBtn" type="submit">Add expense</button>
+          <button class="btn ghost" id="cancelEdit" type="button" hidden>Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <section class="col" aria-label="Spending log">
+      <div class="logbar">
+        <div class="tabs" role="tablist" aria-label="Log view">
+          <button type="button" role="tab" id="tabDays" aria-selected="true" aria-controls="dayList">By day</button>
+          <button type="button" role="tab" id="tabText" aria-selected="false" aria-controls="textView">Plain text</button>
+        </div>
+      </div>
+      <div id="dayList" role="tabpanel" aria-labelledby="tabDays"></div>
+      <div id="textView" role="tabpanel" aria-labelledby="tabText" hidden>
+        <div class="exports">
+          <button class="btn ghost sm" id="copyBtn" type="button">Copy text</button>
+          <button class="btn ghost sm" id="dlBtn" type="button">Download .txt</button>
+        </div>
+        <pre class="paper" id="textOut" tabindex="0"></pre>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toastwrap"><div class="toast" id="toast" role="status" hidden></div></div>
+
+<script>
+(function(){
+'use strict';
+
+/*PURE-START*/
+var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var WD=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var nf=new Intl.NumberFormat('en-IN',{maximumFractionDigits:2});
+function pad2(n){return String(n).padStart(2,'0');}
+function round2(n){return Math.round(n*100)/100;}
+function rupee(n){return '₹'+nf.format(n);}
+function isoOf(d){return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());}
+function todayISO(){return isoOf(new Date());}
+function monthKey(iso){return iso.slice(0,7);}
+function daysIn(key){var p=key.split('-').map(Number);return new Date(p[0],p[1],0).getDate();}
+function shiftMonth(key,delta){var p=key.split('-').map(Number);var d=new Date(p[0],p[1]-1+delta,1);return d.getFullYear()+'-'+pad2(d.getMonth()+1);}
+function monthName(key){var p=key.split('-').map(Number);return MONTHS[p[1]-1]+' '+p[0];}
+function dayLabel(iso){var p=iso.split('-').map(Number);var dt=new Date(p[0],p[1]-1,p[2]);return WD[dt.getDay()]+' '+p[2]+' '+MON[p[1]-1];}
+function mine(e){return round2(e.amount*(e.share==null?100:e.share)/100);}
+function clampShare(v){
+  if(v===''||v==null)return 50;
+  var n=Number(v);
+  if(!isFinite(n))return 50;
+  return Math.min(99,Math.max(1,Math.round(n)));
+}
+function parseAmount(s){
+  var t=String(s).replace(/[,\s₹]/g,'');
+  if(!/^(\d+(\.\d{0,2})?|\.\d{1,2})$/.test(t))return null;
+  var n=parseFloat(t);
+  return (n>0&&n<=10000000)?round2(n):null;
+}
+function sortEntries(a,b){
+  if(a.date!==b.date)return a.date<b.date?-1:1;
+  return (a.t||0)-(b.t||0);
+}
+function monthStats(entries){
+  var total=0,roommate=0,groups={},days={};
+  entries.forEach(function(e){
+    var m=mine(e),g=e.group||'Other';
+    total+=m;roommate+=round2(e.amount-m);
+    groups[g]=(groups[g]||0)+m;days[e.date]=1;
+  });
+  return {
+    total:round2(total),roommate:round2(roommate),count:entries.length,days:Object.keys(days).length,
+    groups:Object.keys(groups).map(function(k){return [k,round2(groups[k])];}).sort(function(a,b){return b[1]-a[1];})
+  };
+}
+function paceInfo(key,nowISO,total,budget){
+  var nowKey=monthKey(nowISO);
+  if(!(budget>0))return {kind:'none',text:'No budget set'};
+  var left=round2(budget-total);
+  if(total>budget)return {kind:'bad',text:'Over budget by '+rupee(round2(total-budget))};
+  if(key<nowKey)return {kind:'good',text:'Month closed, '+rupee(left)+' under budget'};
+  if(key>nowKey)return {kind:'none',text:'Upcoming month'};
+  var d=Number(nowISO.slice(8,10)),dim=daysIn(key);
+  var expected=budget*d/dim,daysLeft=dim-d+1;
+  var info={tick:d/dim,daysLeft:daysLeft,perDay:Math.floor(left/daysLeft)};
+  if(total<=expected){info.kind='good';info.text=rupee(round2(expected-total))+' under pace';}
+  else{info.kind='warn';info.text=rupee(round2(total-expected))+' over pace';}
+  return info;
+}
+function buildText(key,entries,budget){
+  var st=monthStats(entries),L=[];
+  L.push('DAILY SPEND LOG - '+monthName(key).toUpperCase());
+  L.push('Budget '+rupee(budget)+'   Spent '+rupee(st.total)+'   Left '+rupee(round2(budget-st.total)));
+  L.push('');
+  var byDay={};
+  entries.slice().sort(sortEntries).forEach(function(e){(byDay[e.date]=byDay[e.date]||[]).push(e);});
+  Object.keys(byDay).sort().forEach(function(date){
+    L.push(dayLabel(date));
+    var dayTotal=0;
+    byDay[date].forEach(function(e){
+      var m=mine(e);dayTotal+=m;
+      var label=e.name+(e.note?' ('+e.note+')':'');
+      if(label.length>30)label=label.slice(0,29)+'…';
+      var line='  '+(label+' ').padEnd(31,'.')+' '+rupee(m);
+      if(m!==e.amount)line+='  (paid '+rupee(e.amount)+', your share '+e.share+'%)';
+      L.push(line);
+    });
+    L.push('  '+'Day total '.padEnd(31,'.')+' '+rupee(round2(dayTotal)));
+    L.push('');
+  });
+  if(!entries.length)L.push('No entries yet.');
+  else if(st.roommate>0)L.push("Roommate's share on shared items: "+rupee(st.roommate)+' (not counted in Spent)');
+  return L.join('\n').replace(/\s+$/,'')+'\n';
+}
+/*PURE-END*/
+
+var DEFAULTS={
+  budget:10500,
+  items:[
+    {id:'lunch',name:'Lunch',group:'Food court',shared:false,share:50},
+    {id:'dinner',name:'Dinner',group:'Food court',shared:false,share:50},
+    {id:'buttermilk',name:'Buttermilk',group:'Snacks and drinks',shared:false,share:50},
+    {id:'mints',name:'Mints',group:'Snacks and drinks',shared:false,share:50},
+    {id:'oats',name:'Oats / muesli',group:'Groceries',shared:true,share:50},
+    {id:'bread',name:'Bread',group:'Groceries',shared:true,share:50},
+    {id:'milk',name:'Milk (tetra packs)',group:'Groceries',shared:true,share:50}
+  ]
+};
+
+var state={
+  docs:{},settings:JSON.parse(JSON.stringify(DEFAULTS)),view:monthKey(todayISO()),
+  editing:null,sel:null,tab:'days',ready:true,notice:null,dirty:false
+};
+var saveTimer=null,toastTimer=null,chain=Promise.resolve();
+
+function $(id){return document.getElementById(id);}
+function h(tag,props){
+  var el=document.createElement(tag);
+  if(props)Object.keys(props).forEach(function(k){
+    var v=props[k];
+    if(v==null||v===false)return;
+    if(k==='class')el.className=v;
+    else if(k==='text')el.textContent=v;
+    else if(k.indexOf('on')===0)el.addEventListener(k.slice(2),v);
+    else if(v===true)el.setAttribute(k,'');
+    else el.setAttribute(k,v);
+  });
+  for(var i=2;i<arguments.length;i++)addChild(el,arguments[i]);
+  return el;
+}
+function addChild(el,c){
+  if(c==null||c===false)return;
+  if(Array.isArray(c)){c.forEach(function(x){addChild(el,x);});return;}
+  el.append(c.nodeType?c:document.createTextNode(String(c)));
+}
+function newId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function item(id){return state.settings.items.filter(function(i){return i.id===id;})[0]||null;}
+function entriesOf(key){
+  var d=state.docs['m-'+key];
+  if(!d||!Array.isArray(d.entries))return [];
+  return d.entries.filter(function(e){return e&&typeof e.amount==='number'&&typeof e.date==='string';});
+}
+function lastAmount(id){
+  if(id==='other')return null;
+  var best=null;
+  Object.keys(state.docs).forEach(function(k){
+    if(k.indexOf('m-')!==0)return;
+    var d=state.docs[k];
+    if(!d||!Array.isArray(d.entries))return;
+    d.entries.forEach(function(e){
+      if(e&&e.item===id&&typeof e.amount==='number'&&(!best||sortEntries(best,e)<0))best=e;
+    });
+  });
+  return best?best.amount:null;
+}
+
+/* storage: this phone only (localStorage), with backup export and import */
+var KEY='daily-spend-log:v1',META='daily-spend-log:meta';
+function readJSON(k,fallback){try{var v=JSON.parse(localStorage.getItem(k));return v==null?fallback:v;}catch(e){return fallback;}}
+function writeJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
+var store={
+  set:function(id,data){
+    var d=Object.assign({},state.docs);d[id]=data;state.docs=d;
+    if(!writeJSON(KEY,state.docs))toast('This phone could not store that. Free up space, then export a backup.');
+    renderAll();
+    return Promise.resolve();
+  }
+};
+function load(){
+  var d=readJSON(KEY,{});
+  state.docs=(d&&typeof d==='object'&&!Array.isArray(d))?d:{};
+  state.settings=normSettings(state.docs.settings);
+}
+function requestPersist(){try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}}
+function enqueue(fn){
+  chain=chain.then(function(){return Promise.resolve().then(fn);}).catch(function(){toast('That did not save. Try again.');});
+  return chain;
+}
+function normSettings(s){
+  var out=JSON.parse(JSON.stringify(DEFAULTS));
+  if(!s||typeof s!=='object')return out;
+  if(typeof s.budget==='number'&&s.budget>=0)out.budget=s.budget;
+  if(Array.isArray(s.items)){
+    out.items=s.items.filter(function(i){return i&&i.id&&typeof i.name==='string';}).map(function(i){
+      return {id:String(i.id),name:i.name,group:(typeof i.group==='string'&&i.group)?i.group:'Other',shared:!!i.shared,share:clampShare(i.share)};
+    });
+  }
+  return out;
+}
+function daysBetween(a,b){
+  var pa=a.split('-').map(Number),pb=b.split('-').map(Number);
+  return Math.round((new Date(pb[0],pb[1]-1,pb[2])-new Date(pa[0],pa[1]-1,pa[2]))/86400000);
+}
+function allEntries(){
+  var all=[];
+  Object.keys(state.docs).forEach(function(k){
+    var d=state.docs[k];
+    if(k.indexOf('m-')===0&&d&&Array.isArray(d.entries))d.entries.forEach(function(e){if(e&&typeof e.date==='string')all.push(e);});
+  });
+  return all;
+}
+function backupDue(){
+  var all=allEntries();
+  if(!all.length)return false;
+  var meta=readJSON(META,{}),today=todayISO();
+  if(meta.lastBackup)return daysBetween(meta.lastBackup,today)>=7;
+  var first=all.reduce(function(m,e){return e.date<m?e.date:m;},all[0].date);
+  return daysBetween(first,today)>=3;
+}
+function updateBackupInfo(){
+  var meta=readJSON(META,{});
+  $('backupInfo').textContent='Last backup: '+(meta.lastBackup?dayLabel(meta.lastBackup):'never')+'. '+allEntries().length+' entries on this phone.';
+}
+function download(filename,mime,text){
+  var blob=new Blob([text],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url);},4000);
+}
+function exportBackup(){
+  var payload={app:'daily-spend-log',version:1,exportedAt:new Date().toISOString(),docs:state.docs};
+  download('spend-log-backup-'+todayISO()+'.json','application/json',JSON.stringify(payload,null,2));
+  var meta=readJSON(META,{});meta.lastBackup=todayISO();writeJSON(META,meta);
+  updateBackupInfo();renderNotice();
+  toast('Backup file saved. Look in your Downloads.');
+}
+function applyDocs(d){
+  state.docs=d;state.settings=normSettings(d.settings);state.dirty=false;
+  writeJSON(KEY,d);
+  renderSettings();renderChips();renderAll();updateBackupInfo();
+}
+function importBackup(file){
+  var r=new FileReader();
+  r.onload=function(){
+    var p;
+    try{p=JSON.parse(String(r.result));}catch(e){p=null;}
+    if(!p||p.app!=='daily-spend-log'||!p.docs||typeof p.docs!=='object'||Array.isArray(p.docs)){toast('That file is not a Spend Log backup.');return;}
+    var prev=state.docs;
+    applyDocs(p.docs);
+    toast('Backup restored.',function(){applyDocs(prev);});
+  };
+  r.readAsText(file);
+}
+
+/* rendering */
+function renderNotice(){
+  var n=$('notice');
+  n.replaceChildren();
+  if(!backupDue()){n.hidden=true;return;}
+  n.hidden=false;
+  n.append(h('span',{text:'Your entries are saved only on this phone. Export a backup so you do not lose them.'}),
+           h('button',{type:'button',class:'link',onclick:exportBackup},'Export backup'));
+}
+function renderTop(){
+  $('monthLabel').textContent=monthName(state.view);
+  $('thisMonth').hidden=state.view===monthKey(todayISO());
+  $('settingsBtn').disabled=!state.ready;
+}
+function renderSummary(){
+  var key=state.view,entries=entriesOf(key),st=monthStats(entries),budget=state.settings.budget;
+  $('bigNum').textContent=rupee(st.total);
+  $('ofBudget').textContent=budget>0?'of '+rupee(budget)+' budget':'no budget set';
+  var pct=budget>0?st.total/budget:0;
+  var info=paceInfo(key,todayISO(),st.total,budget);
+  $('fill').style.width=(Math.min(pct,1)*100)+'%';
+  $('meter').className='meter '+(info.kind==='warn'||info.kind==='bad'?info.kind:'');
+  $('meter').setAttribute('aria-label',Math.round(pct*100)+'% of the monthly budget used');
+  var tick=$('tick');
+  if(info.tick!=null&&budget>0){tick.hidden=false;tick.style.left=(info.tick*100)+'%';}else tick.hidden=true;
+  var pill=$('statusPill');pill.className='pill '+info.kind;pill.textContent=info.text;
+  $('perDay').textContent=(info.perDay!=null&&st.total<budget)?rupee(info.perDay)+' a day left to spend, '+info.daysLeft+' days to go including today':'';
+  $('legend').textContent=(info.tick!=null&&budget>0)?'The tick marks where an even spread of your budget would be today.':'';
+  var ul=$('groups');ul.replaceChildren();
+  st.groups.forEach(function(g){
+    var w=st.total>0?(g[1]/st.total*100):0;
+    var bar=h('i');bar.style.width=w+'%';
+    ul.append(h('li',null,h('div',{class:'gl'},h('span',{text:g[0]}),h('span',{class:'amt',text:rupee(g[1])})),h('div',{class:'gbar'},bar)));
+  });
+  $('avgLine').textContent=st.days>0?'Average '+rupee(round2(st.total/st.days))+' on the '+st.days+(st.days===1?' day':' days')+' you logged.':'';
+  $('roommateLine').textContent=st.roommate>0?"Roommate's share on shared items: "+rupee(st.roommate)+'. It is not counted above.':'';
+}
+function rowEl(e){
+  var m=mine(e),shared=m!==e.amount;
+  var meta=[e.note,shared?'Paid '+rupee(e.amount)+', your share '+e.share+'%':''].filter(Boolean).join(' · ');
+  var when=dayLabel(e.date);
+  return h('div',{class:'row'},
+    h('div',{class:'what'},h('div',{class:'name',text:e.name}),meta?h('div',{class:'meta',text:meta}):null),
+    h('div',{class:'amt',text:rupee(m)}),
+    h('div',{class:'acts'},
+      h('button',{type:'button',class:'link','aria-label':'Edit '+e.name+' on '+when,onclick:function(){startEdit(e);}},'Edit'),
+      h('button',{type:'button',class:'link danger','aria-label':'Delete '+e.name+' on '+when,onclick:function(){removeEntry(e);}},'Delete')
+    )
+  );
+}
+function renderLog(){
+  var box=$('dayList'),entries=entriesOf(state.view);
+  box.replaceChildren();
+  if(!entries.length){
+    box.append(h('div',{class:'empty'},
+      h('p',{class:'empty-title',text:'Nothing logged for '+monthName(state.view)+' yet.'}),
+      h('p',{text:'Choose an item, enter what you paid, and it shows up here by day.'})));
+    return;
+  }
+  var sorted=entries.slice().sort(sortEntries),order=[],by={};
+  sorted.forEach(function(e){if(!by[e.date]){by[e.date]=[];order.push(e.date);}by[e.date].push(e);});
+  var today=todayISO();
+  order.reverse().forEach(function(date){
+    var list=by[date],total=round2(list.reduce(function(s,e){return s+mine(e);},0));
+    box.append(h('section',{class:'day'},
+      h('div',{class:'dayhead'},h('span',null,dayLabel(date),date===today?h('span',{class:'today',text:'Today'}):null),h('span',{class:'amt',text:rupee(total)})),
+      list.map(rowEl)
+    ));
+  });
+}
+function renderText(){
+  $('textOut').textContent=buildText(state.view,entriesOf(state.view),state.settings.budget);
+}
+function chip(id,label,shared){
+  return h('button',{type:'button',class:'chip','aria-pressed':String(state.sel===id),onclick:function(){selectItem(id);}},label,shared?h('span',{class:'tag',text:'shared'}):null);
+}
+function renderChips(){
+  var box=$('chips');box.replaceChildren();
+  state.settings.items.forEach(function(i){box.append(chip(i.id,i.name,i.shared));});
+  box.append(chip('other','Other',false));
+}
+function renderForm(){
+  var b=$('submitBtn');
+  b.disabled=!state.ready;
+  b.textContent=!state.ready?'Connecting…':(state.editing?'Save changes':'Add expense');
+  $('cancelEdit').hidden=!state.editing;
+}
+function renderSettings(){
+  $('budgetInput').value=String(state.settings.budget);
+  updateBackupInfo();
+  var box=$('itemRows');box.replaceChildren();
+  state.settings.items.forEach(function(it){box.append(itemRow(it));});
+  var gl=$('groupList');gl.replaceChildren();
+  var seen={};
+  state.settings.items.forEach(function(i){if(!seen[i.group]){seen[i.group]=1;gl.append(h('option',{value:i.group}));}});
+}
+function itemRow(it){
+  var share=h('input',{type:'text',inputmode:'numeric',value:String(it.share),'aria-label':'My share percent for '+it.name});
+  share.disabled=!it.shared;
+  var name=h('input',{type:'text',class:'n',maxlength:'40',value:it.name,'aria-label':'Item name',
+    oninput:function(ev){it.name=ev.target.value;touchSettings();},
+    onchange:function(ev){if(!ev.target.value.trim()){ev.target.value='Item';it.name='Item';touchSettings();}renderChips();}});
+  var group=h('input',{type:'text',class:'g',maxlength:'30',value:it.group,list:'groupList','aria-label':'Group for '+it.name,
+    oninput:function(ev){it.group=ev.target.value.trim()||'Other';touchSettings();}});
+  var chk=h('input',{type:'checkbox','aria-label':'Shared with roommate: '+it.name,
+    onchange:function(ev){it.shared=ev.target.checked;share.disabled=!it.shared;touchSettings();renderChips();}});
+  chk.checked=it.shared;
+  share.addEventListener('input',function(ev){it.share=clampShare(ev.target.value);touchSettings();});
+  var pct=h('span',{class:'money suffix sp'},share,h('span',{'aria-hidden':'true',text:'%'}));
+  return h('div',{class:'itemrow'},
+    name,group,
+    h('label',{class:'check'},chk,'Shared'),
+    pct,
+    h('button',{type:'button',class:'link danger','aria-label':'Remove '+it.name,onclick:function(){
+      state.settings.items=state.settings.items.filter(function(x){return x!==it;});
+      if(state.sel===it.id)state.sel=null;
+      touchSettings();renderSettings();renderChips();
+    }},'Remove')
+  );
+}
+function renderAll(){
+  renderNotice();renderTop();renderSummary();renderLog();renderChips();renderForm();
+  if(state.tab==='text')renderText();
+  var st=$('settings');
+  if(!st.hidden&&!st.contains(document.activeElement))renderSettings();
+}
+
+/* settings persistence */
+function touchSettings(){
+  if(!state.ready)return;
+  state.dirty=true;
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(function(){
+    state.dirty=false;
+    var payload={budget:state.settings.budget,items:JSON.parse(JSON.stringify(state.settings.items))};
+    enqueue(function(){return store.set('settings',payload);});
+  },500);
+  renderSummary();
+}
+
+/* entries */
+function saveEntry(entry,old){
+  return enqueue(async function(){
+    var nk=monthKey(entry.date);
+    if(old){
+      var ok=monthKey(old.date);
+      if(ok===nk){
+        await store.set('m-'+nk,{entries:entriesOf(nk).map(function(e){return e.id===old.id?entry:e;})});
+        return;
+      }
+      await store.set('m-'+nk,{entries:entriesOf(nk).concat([entry])});
+      await store.set('m-'+ok,{entries:entriesOf(ok).filter(function(e){return e.id!==old.id;})});
+      return;
+    }
+    await store.set('m-'+nk,{entries:entriesOf(nk).concat([entry])});
+  });
+}
+function removeEntry(e){
+  enqueue(function(){
+    var k=monthKey(e.date);
+    return store.set('m-'+k,{entries:entriesOf(k).filter(function(x){return x.id!==e.id;})});
+  });
+  if(state.editing&&state.editing.id===e.id)resetForm();
+  toast('Deleted '+e.name+' '+rupee(mine(e))+'.',function(){saveEntry(e,null);});
+}
+function selectItem(id){
+  state.sel=id;renderChips();
+  var it=item(id);
+  $('otherWrap').hidden=id!=='other';
+  $('sharedChk').checked=it?it.shared:false;
+  $('shareInput').value=String(it?it.share:50);
+  syncShareUI();
+  if(!state.editing){
+    var last=lastAmount(id);
+    $('amount').value=last!=null?String(last):'';
+  }
+  if(id==='other')$('otherName').focus();
+  else{$('amount').focus();$('amount').select();}
+  updatePreview();
+}
+function syncShareUI(){$('shareInput').disabled=!$('sharedChk').checked;}
+function updatePreview(){
+  var p=$('preview'),shared=$('sharedChk').checked,amt=parseAmount($('amount').value);
+  if(!shared){p.textContent='';return;}
+  if(amt==null){p.textContent='Enter the total you paid to see your share.';return;}
+  var m=round2(amt*clampShare($('shareInput').value)/100);
+  p.textContent='You pay '+rupee(m)+' of '+rupee(amt)+". Roommate's share: "+rupee(round2(amt-m))+'.';
+}
+function resetForm(){
+  state.editing=null;state.sel=null;
+  $('otherWrap').hidden=true;$('otherName').value='';$('amount').value='';$('note').value='';
+  $('sharedChk').checked=false;$('shareInput').value='50';syncShareUI();
+  $('formError').textContent='';$('formTitle').textContent='Add an expense';
+  renderChips();renderForm();updatePreview();
+}
+function startEdit(e){
+  state.editing=e;
+  var known=e.item&&e.item!=='other'&&item(e.item);
+  state.sel=known?e.item:'other';
+  renderChips();
+  $('otherWrap').hidden=!!known;$('otherName').value=known?'':e.name;
+  $('amount').value=String(e.amount);$('date').value=e.date;$('note').value=e.note||'';
+  var shared=e.share<100;
+  $('sharedChk').checked=shared;$('shareInput').value=String(shared?e.share:50);syncShareUI();
+  $('formTitle').textContent='Edit expense';$('formError').textContent='';
+  renderForm();updatePreview();
+  $('entryForm').scrollIntoView({block:'nearest',behavior:'smooth'});
+  $('amount').focus();
+}
+function submitForm(ev){
+  ev.preventDefault();
+  if(!state.ready)return;
+  var err=$('formError');err.textContent='';
+  if(!state.sel){err.textContent='Choose what you bought.';return;}
+  var name,group,itemId;
+  if(state.sel==='other'){
+    name=$('otherName').value.trim();
+    if(!name){err.textContent='Give the item a name.';return;}
+    group='Other';itemId='other';
+  }else{
+    var it=item(state.sel);
+    if(!it){err.textContent='That item was removed. Choose another.';return;}
+    name=it.name;group=it.group;itemId=it.id;
+  }
+  var amount=parseAmount($('amount').value);
+  if(amount==null){err.textContent='Enter the amount you paid, like 120 or 59.50.';return;}
+  var date=$('date').value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){err.textContent='Pick a date.';return;}
+  var shared=$('sharedChk').checked,share=shared?clampShare($('shareInput').value):100;
+  var old=state.editing;
+  var entry={id:old?old.id:newId(),t:old?old.t:Date.now(),date:date,item:itemId,name:name,group:group,amount:amount,share:share,note:$('note').value.trim().slice(0,80)};
+  saveEntry(entry,old);
+  var k=monthKey(date);
+  toast((old?'Updated ':'Added ')+name+' '+rupee(mine(entry))+(k!==state.view?' in '+monthName(k):'')+'.');
+  resetForm();
+  var first=$('chips').querySelector('button');
+  if(first)first.focus();
+}
+
+/* small UI helpers */
+function hideToast(){$('toast').hidden=true;}
+function toast(msg,undo){
+  var t=$('toast');
+  t.replaceChildren(h('span',{text:msg}));
+  if(undo)t.append(h('button',{type:'button',class:'link',onclick:function(){undo();hideToast();}},'Undo'));
+  t.hidden=false;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(hideToast,undo?7000:3500);
+}
+function setTab(t){
+  state.tab=t;
+  $('dayList').hidden=t!=='days';$('textView').hidden=t!=='text';
+  $('tabDays').setAttribute('aria-selected',String(t==='days'));
+  $('tabText').setAttribute('aria-selected',String(t==='text'));
+  if(t==='text')renderText();
+}
+
+/* wiring */
+$('entryForm').addEventListener('submit',submitForm);
+$('cancelEdit').addEventListener('click',function(){resetForm();});
+$('amount').addEventListener('input',updatePreview);
+$('shareInput').addEventListener('input',updatePreview);
+$('sharedChk').addEventListener('change',function(){syncShareUI();updatePreview();});
+$('prevM').addEventListener('click',function(){state.view=shiftMonth(state.view,-1);renderAll();});
+$('nextM').addEventListener('click',function(){state.view=shiftMonth(state.view,1);renderAll();});
+$('thisMonth').addEventListener('click',function(){state.view=monthKey(todayISO());renderAll();});
+$('tabDays').addEventListener('click',function(){setTab('days');});
+$('tabText').addEventListener('click',function(){setTab('text');});
+$('settingsBtn').addEventListener('click',function(){
+  var st=$('settings'),open=st.hidden;
+  st.hidden=!open;
+  this.setAttribute('aria-expanded',String(open));
+  if(open){renderSettings();st.scrollIntoView({block:'nearest',behavior:'smooth'});}
+});
+$('budgetInput').addEventListener('input',function(ev){
+  var n=parseFloat(String(ev.target.value).replace(/[,\s₹]/g,''));
+  if(isFinite(n)&&n>=0){state.settings.budget=n;touchSettings();}
+});
+$('addItem').addEventListener('click',function(){
+  state.settings.items.push({id:newId(),name:'New item',group:'Other',shared:false,share:50});
+  touchSettings();renderSettings();renderChips();
+  var names=$('itemRows').querySelectorAll('input.n');
+  var last=names[names.length-1];
+  if(last){last.focus();last.select();}
+});
+$('copyBtn').addEventListener('click',async function(){
+  var txt=buildText(state.view,entriesOf(state.view),state.settings.budget);
+  try{await navigator.clipboard.writeText(txt);toast('Copied the log for '+monthName(state.view)+'.');}
+  catch(e){
+    var r=document.createRange();r.selectNodeContents($('textOut'));
+    var s=window.getSelection();s.removeAllRanges();s.addRange(r);
+    toast('Text selected. Use your device copy command.');
+  }
+});
+$('dlBtn').addEventListener('click',function(){
+  download('spend-log-'+state.view+'.txt','text/plain',buildText(state.view,entriesOf(state.view),state.settings.budget));
+  toast('Saved the log for '+monthName(state.view)+'. Look in your Downloads.');
+});
+$('exportBtn').addEventListener('click',exportBackup);
+$('importBtn').addEventListener('click',function(){$('importFile').click();});
+$('importFile').addEventListener('change',function(ev){
+  var f=ev.target.files&&ev.target.files[0];
+  if(f)importBackup(f);
+  ev.target.value='';
+});
+document.addEventListener('visibilitychange',function(){if(!document.hidden)renderAll();});
+
+function init(){
+  $('date').value=todayISO();
+  load();
+  requestPersist();
+  renderAll();
+  updateBackupInfo();
+  if('serviceWorker' in navigator){
+    window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});
+  }
+}
+init();
+})();
+</script>
+</body>
+</html>
