@@ -3,6 +3,21 @@
 A small expense tracker that runs in your phone's browser and installs to the home screen like an app.
 It works with no internet after the first open. Your entries are stored on your phone only.
 
+## What the app does
+
+- **Daily log** with one-tap item buttons that remember the last price.
+- **Quick add:** one tap logs a regular item for today, with Undo.
+- **Budget meter** with a pace marker and a per-day figure for the rest of the month.
+- **Limits per group** (Settings): a group bar turns amber at 80% and red past the limit.
+- **Roommate balance:** track shared items, who paid at the shop, and payments between you. Shows who owes whom.
+- **Insights tab:** spending by day, comparison with last month, and your biggest items.
+- **Monthly repeats** (Settings): items added to your log automatically on the day you choose.
+- **Search and group filter** on the By day list.
+- **Plain text and CSV downloads** for each month.
+- **Meal nudge:** a reminder banner if lunch (after 2 pm) or dinner (after 9 pm) is not logged.
+- **Appearance:** match your phone, light, or dark.
+- **Backup and restore** in Settings.
+
 ## What is in this folder
 
 | File | What it does |

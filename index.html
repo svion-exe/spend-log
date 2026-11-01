@@ -170,6 +170,35 @@ fieldset{border:0;padding:0;margin:0;min-width:0}
 .itemrow .g{flex:1 1 140px;min-width:0}
 .itemrow .sp{width:92px}
 
+/* upgrade */
+.nudge{background:var(--accent-soft);color:var(--fg);border:1px solid var(--accent);border-radius:8px;padding:10px 14px;font-size:14px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px}
+.quick,.balance{display:grid;gap:10px}
+.chip .qa{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.balnum{font:500 28px/1.1 var(--font-num);font-variant-numeric:tabular-nums}
+.balnum.pos{color:var(--accent)}
+.balnum.neg{color:var(--warn)}
+.setlist{list-style:none;margin:0;padding:0}
+.setlist li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+.filters{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:10px;margin-bottom:6px}
+@media (max-width:420px){.filters{grid-template-columns:minmax(0,1fr)}}
+.insight{display:grid;gap:16px}
+.cmp{display:grid;gap:8px}
+.chartwrap{overflow-x:auto}
+svg.chart{display:block;width:100%;height:auto;min-width:280px}
+svg.chart text{fill:var(--muted);font:10px var(--font-num)}
+svg.chart .bar{fill:var(--accent)}
+svg.chart .bar.over{fill:var(--warn)}
+svg.chart .gridl{stroke:var(--line);stroke-width:1}
+svg.chart .allow{stroke:var(--fg);stroke-width:1;stroke-dasharray:3 3}
+.toplist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.toplist li{display:flex;justify-content:space-between;gap:12px;font-size:14px}
+.gbar i.warn{background:var(--warn)}
+.gbar i.bad{background:var(--bad)}
+.itemrow .lim{width:130px}
+.themebox{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.themebox label{margin:0}
+.themebox select{width:auto;min-width:160px}
+
 .toastwrap{
   position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;pointer-events:none;
   padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
@@ -199,6 +228,7 @@ fieldset{border:0;padding:0;margin:0;min-width:0}
   </header>
 
   <div class="notice" id="notice" role="status" hidden></div>
+  <div class="nudge" id="nudge" role="status" hidden></div>
 
   <section class="card" id="settings" aria-labelledby="setH" hidden>
     <div class="stack">
@@ -216,6 +246,21 @@ fieldset{border:0;padding:0;margin:0;min-width:0}
       </div>
       <div class="actions">
         <button class="btn ghost" id="addItem" type="button">Add item</button>
+      </div>
+      <div>
+        <h3>Limits per group</h3>
+        <p class="hint">Optional. Set a monthly limit for a group. Its bar turns amber at 80% and red when you pass the limit.</p>
+        <div id="limitRows"></div>
+      </div>
+      <div>
+        <h3>Repeats every month</h3>
+        <p class="hint">For things that come every month, like a subscription or a regular grocery top-up. They are added to your log the next time you open the app on or after the day you choose.</p>
+        <div id="repRows"></div>
+        <div class="actions" style="margin-top:8px"><button class="btn ghost" id="addRep" type="button">Add monthly item</button></div>
+      </div>
+      <div class="themebox">
+        <label for="themeSel">Appearance</label>
+        <select id="themeSel"><option value="auto">Match my phone</option><option value="light">Light</option><option value="dark">Dark</option></select>
       </div>
       <p class="hint">Changes save on their own.</p>
       <div class="backup">
@@ -247,6 +292,12 @@ fieldset{border:0;padding:0;margin:0;min-width:0}
         <p class="small muted" id="roommateLine"></p>
       </section>
 
+      <section class="card quick" id="quickCard" aria-labelledby="quickH" hidden>
+        <h2 id="quickH" class="eyebrow">Quick add for today</h2>
+        <div class="chips" id="quickChips"></div>
+        <p class="hint" style="margin:0">One tap logs the item at its last price. You can undo right after.</p>
+      </section>
+
       <form class="card" id="entryForm" novalidate>
         <h2 id="formTitle">Add an expense</h2>
         <fieldset class="field">
@@ -274,6 +325,10 @@ fieldset{border:0;padding:0;margin:0;min-width:0}
               <span class="money suffix"><input id="shareInput" type="text" inputmode="numeric" value="50" autocomplete="off"><span aria-hidden="true">%</span></span>
             </label>
           </div>
+          <div class="field" id="paidByWrap" hidden>
+            <label for="paidBy">Who paid at the shop?</label>
+            <select id="paidBy"><option value="me">I paid</option><option value="roommate">Roommate paid</option></select>
+          </div>
           <p class="hint" id="preview" aria-live="polite" style="margin:0"></p>
         </div>
         <div class="field">
@@ -286,20 +341,43 @@ fieldset{border:0;padding:0;margin:0;min-width:0}
           <button class="btn ghost" id="cancelEdit" type="button" hidden>Cancel</button>
         </div>
       </form>
+
+      <section class="card balance" id="balCard" aria-labelledby="balH" hidden>
+        <h2 id="balH" class="eyebrow">Roommate balance</h2>
+        <div class="balnum" id="balNum"></div>
+        <p class="small muted" id="balNote"></p>
+        <div class="field">
+          <label for="setAmt">Amount settled</label>
+          <div class="money"><span aria-hidden="true">&#8377;</span><input id="setAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="0"></div>
+        </div>
+        <div class="actions">
+          <button class="btn ghost sm" id="setGot" type="button">Roommate paid me</button>
+          <button class="btn ghost sm" id="setGave" type="button">I paid roommate</button>
+        </div>
+        <p class="err" id="setErr" role="alert"></p>
+        <ul class="setlist" id="setList"></ul>
+      </section>
     </div>
 
     <section class="col" aria-label="Spending log">
       <div class="logbar">
         <div class="tabs" role="tablist" aria-label="Log view">
           <button type="button" role="tab" id="tabDays" aria-selected="true" aria-controls="dayList">By day</button>
+          <button type="button" role="tab" id="tabInsights" aria-selected="false" aria-controls="insightView">Insights</button>
           <button type="button" role="tab" id="tabText" aria-selected="false" aria-controls="textView">Plain text</button>
         </div>
       </div>
+      <div class="filters" id="filters" hidden>
+        <div class="field"><label for="q">Search</label><input id="q" type="text" autocomplete="off" placeholder="Item or note"></div>
+        <div class="field"><label for="gf">Group</label><select id="gf"><option value="">All groups</option></select></div>
+      </div>
       <div id="dayList" role="tabpanel" aria-labelledby="tabDays"></div>
+      <div id="insightView" role="tabpanel" aria-labelledby="tabInsights" hidden></div>
       <div id="textView" role="tabpanel" aria-labelledby="tabText" hidden>
         <div class="exports">
           <button class="btn ghost sm" id="copyBtn" type="button">Copy text</button>
           <button class="btn ghost sm" id="dlBtn" type="button">Download .txt</button>
+          <button class="btn ghost sm" id="csvBtn" type="button">Download .csv</button>
         </div>
         <pre class="paper" id="textOut" tabindex="0"></pre>
       </div>
@@ -371,7 +449,7 @@ function paceInfo(key,nowISO,total,budget){
   else{info.kind='warn';info.text=rupee(round2(total-expected))+' over pace';}
   return info;
 }
-function buildText(key,entries,budget){
+function buildText(key,entries,budget,balance){
   var st=monthStats(entries),L=[];
   L.push('DAILY SPEND LOG - '+monthName(key).toUpperCase());
   L.push('Budget '+rupee(budget)+'   Spent '+rupee(st.total)+'   Left '+rupee(round2(budget-st.total)));
@@ -386,7 +464,7 @@ function buildText(key,entries,budget){
       var label=e.name+(e.note?' ('+e.note+')':'');
       if(label.length>30)label=label.slice(0,29)+'…';
       var line='  '+(label+' ').padEnd(31,'.')+' '+rupee(m);
-      if(m!==e.amount)line+='  (paid '+rupee(e.amount)+', your share '+e.share+'%)';
+      if(m!==e.amount)line+='  (paid '+rupee(e.amount)+(e.paidBy==='roommate'?' by roommate':'')+', your share '+e.share+'%)';
       L.push(line);
     });
     L.push('  '+'Day total '.padEnd(31,'.')+' '+rupee(round2(dayTotal)));
@@ -394,12 +472,58 @@ function buildText(key,entries,budget){
   });
   if(!entries.length)L.push('No entries yet.');
   else if(st.roommate>0)L.push("Roommate's share on shared items: "+rupee(st.roommate)+' (not counted in Spent)');
+  if(balance)L.push('Roommate balance, all time: '+(balance>0?'roommate owes you ':'you owe roommate ')+rupee(Math.abs(balance)));
   return L.join('\n').replace(/\s+$/,'')+'\n';
+}
+function entryBalance(e){
+  var sh=e.share==null?100:e.share;
+  if(sh>=100)return 0;
+  var m=mine(e);
+  return e.paidBy==='roommate'?-m:round2(e.amount-m);
+}
+function balanceOf(entries,settlements){
+  var b=0;
+  entries.forEach(function(e){b+=entryBalance(e);});
+  settlements.forEach(function(x){b+=(x.dir==='got'?-x.amount:x.amount);});
+  return round2(b);
+}
+function csvCell(v){var t=String(v==null?'':v);return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;}
+function buildCSV(entries){
+  var rows=[['Date','Item','Group','Amount paid','My share %','My cost','Paid by','Note']];
+  entries.slice().sort(sortEntries).forEach(function(e){
+    rows.push([e.date,e.name,e.group||'Other',e.amount,e.share==null?100:e.share,mine(e),e.paidBy==='roommate'?'Roommate':'Me',e.note||'']);
+  });
+  return rows.map(function(r){return r.map(csvCell).join(',');}).join('\n')+'\n';
+}
+function dailyTotals(entries,key){
+  var dim=daysIn(key),out=[],i;
+  for(i=0;i<dim;i++)out.push(0);
+  entries.forEach(function(e){var d=Number(e.date.slice(8,10));if(d>=1&&d<=dim)out[d-1]=round2(out[d-1]+mine(e));});
+  return out;
+}
+function topItems(entries,n){
+  var by={};
+  entries.forEach(function(e){var o=by[e.name]||(by[e.name]={name:e.name,total:0,count:0});o.total=round2(o.total+mine(e));o.count++;});
+  return Object.keys(by).map(function(k){return by[k];}).sort(function(a,b){return b.total-a.total;}).slice(0,n);
+}
+function sumUpTo(entries,day){var t=0;entries.forEach(function(e){if(Number(e.date.slice(8,10))<=day)t+=mine(e);});return round2(t);}
+function niceMax(v){
+  if(!(v>0))return 100;
+  var p=Math.pow(10,Math.floor(Math.log10(v))),f=v/p;
+  var n=f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10;
+  return n*p;
+}
+function limitState(spent,limit){
+  if(!(limit>0))return 'none';
+  var r=spent/limit;
+  return r>1?'bad':(r>=0.8?'warn':'good');
 }
 /*PURE-END*/
 
 var DEFAULTS={
   budget:10500,
+  groupBudgets:{},
+  recurring:[],
   items:[
     {id:'lunch',name:'Lunch',group:'Food court',shared:false,share:50},
     {id:'dinner',name:'Dinner',group:'Food court',shared:false,share:50},
@@ -413,7 +537,7 @@ var DEFAULTS={
 
 var state={
   docs:{},settings:JSON.parse(JSON.stringify(DEFAULTS)),view:monthKey(todayISO()),
-  editing:null,sel:null,tab:'days',ready:true,notice:null,dirty:false
+  editing:null,sel:null,tab:'days',ready:true,notice:null,dirty:false,q:'',gf:'',nudgeOff:{}
 };
 var saveTimer=null,toastTimer=null,chain=Promise.resolve();
 
@@ -489,6 +613,13 @@ function normSettings(s){
       return {id:String(i.id),name:i.name,group:(typeof i.group==='string'&&i.group)?i.group:'Other',shared:!!i.shared,share:clampShare(i.share)};
     });
   }
+  out.groupBudgets={};
+  if(s.groupBudgets&&typeof s.groupBudgets==='object'){
+    Object.keys(s.groupBudgets).forEach(function(k){var v=Number(s.groupBudgets[k]);if(v>0)out.groupBudgets[k]=v;});
+  }
+  out.recurring=Array.isArray(s.recurring)?s.recurring.filter(function(r){return r&&r.id&&typeof r.name==='string'&&Number(r.amount)>0;}).map(function(r){
+    return {id:String(r.id),name:r.name,group:(typeof r.group==='string'&&r.group)?r.group:'Other',amount:Number(r.amount),day:Math.min(28,Math.max(1,Math.round(Number(r.day)||1))),shared:!!r.shared,share:clampShare(r.share)};
+  }):[];
   return out;
 }
 function daysBetween(a,b){
@@ -574,17 +705,22 @@ function renderSummary(){
   $('perDay').textContent=(info.perDay!=null&&st.total<budget)?rupee(info.perDay)+' a day left to spend, '+info.daysLeft+' days to go including today':'';
   $('legend').textContent=(info.tick!=null&&budget>0)?'The tick marks where an even spread of your budget would be today.':'';
   var ul=$('groups');ul.replaceChildren();
-  st.groups.forEach(function(g){
-    var w=st.total>0?(g[1]/st.total*100):0;
-    var bar=h('i');bar.style.width=w+'%';
-    ul.append(h('li',null,h('div',{class:'gl'},h('span',{text:g[0]}),h('span',{class:'amt',text:rupee(g[1])})),h('div',{class:'gbar'},bar)));
+  var lims=state.settings.groupBudgets||{},spent={};
+  st.groups.forEach(function(g){spent[g[0]]=g[1];});
+  Object.keys(lims).forEach(function(k){if(!(k in spent))spent[k]=0;});
+  Object.keys(spent).sort(function(a,b){return spent[b]-spent[a]||(a<b?-1:1);}).forEach(function(name){
+    var amt=spent[name],lim=lims[name],ls=limitState(amt,lim);
+    var w=lim>0?Math.min(amt/lim,1)*100:(st.total>0?amt/st.total*100:0);
+    var bar=h('i',{class:ls==='warn'||ls==='bad'?ls:null});bar.style.width=w+'%';
+    var right=rupee(amt)+(lim>0?' of '+rupee(lim):'')+(ls==='warn'?' · near limit':ls==='bad'?' · over limit':'');
+    ul.append(h('li',null,h('div',{class:'gl'},h('span',{text:name}),h('span',{class:'amt',text:right})),h('div',{class:'gbar'},bar)));
   });
   $('avgLine').textContent=st.days>0?'Average '+rupee(round2(st.total/st.days))+' on the '+st.days+(st.days===1?' day':' days')+' you logged.':'';
   $('roommateLine').textContent=st.roommate>0?"Roommate's share on shared items: "+rupee(st.roommate)+'. It is not counted above.':'';
 }
 function rowEl(e){
   var m=mine(e),shared=m!==e.amount;
-  var meta=[e.note,shared?'Paid '+rupee(e.amount)+', your share '+e.share+'%':''].filter(Boolean).join(' · ');
+  var meta=[e.note,shared?'Paid '+rupee(e.amount)+(e.paidBy==='roommate'?' by roommate':'')+', your share '+e.share+'%':''].filter(Boolean).join(' · ');
   var when=dayLabel(e.date);
   return h('div',{class:'row'},
     h('div',{class:'what'},h('div',{class:'name',text:e.name}),meta?h('div',{class:'meta',text:meta}):null),
@@ -595,20 +731,47 @@ function rowEl(e){
     )
   );
 }
+function passes(e){
+  if(state.gf&&(e.group||'Other')!==state.gf)return false;
+  if(state.q&&((e.name||'')+' '+(e.note||'')).toLowerCase().indexOf(state.q)<0)return false;
+  return true;
+}
+function syncFilters(all){
+  var gs={};
+  all.forEach(function(e){gs[e.group||'Other']=1;});
+  var names=Object.keys(gs).sort(),sig=names.join('|'),sel=$('gf');
+  if(sel.dataset.sig!==sig){
+    sel.replaceChildren(h('option',{value:'',text:'All groups'}));
+    names.forEach(function(n){sel.append(h('option',{value:n,text:n}));});
+    sel.dataset.sig=sig;
+  }
+  if(state.gf&&names.indexOf(state.gf)<0)state.gf='';
+  sel.value=state.gf;
+  $('filters').hidden=state.tab!=='days'||!all.length;
+}
 function renderLog(){
-  var box=$('dayList'),entries=entriesOf(state.view);
+  var box=$('dayList'),all=entriesOf(state.view);
+  syncFilters(all);
+  var entries=all.filter(passes);
   box.replaceChildren();
-  if(!entries.length){
+  if(!all.length){
     box.append(h('div',{class:'empty'},
       h('p',{class:'empty-title',text:'Nothing logged for '+monthName(state.view)+' yet.'}),
       h('p',{text:'Choose an item, enter what you paid, and it shows up here by day.'})));
     return;
   }
+  if(!entries.length){
+    box.append(h('div',{class:'empty'},
+      h('p',{class:'empty-title',text:'No entries match.'}),
+      h('p',{text:'Clear the search or choose All groups.'})));
+    return;
+  }
+  if(state.q||state.gf)box.append(h('p',{class:'hint',text:'Showing '+entries.length+' of '+all.length+' entries.'}));
   var sorted=entries.slice().sort(sortEntries),order=[],by={};
   sorted.forEach(function(e){if(!by[e.date]){by[e.date]=[];order.push(e.date);}by[e.date].push(e);});
   var today=todayISO();
   order.reverse().forEach(function(date){
-    var list=by[date],total=round2(list.reduce(function(s,e){return s+mine(e);},0));
+    var list=by[date],total=round2(list.reduce(function(t,e){return t+mine(e);},0));
     box.append(h('section',{class:'day'},
       h('div',{class:'dayhead'},h('span',null,dayLabel(date),date===today?h('span',{class:'today',text:'Today'}):null),h('span',{class:'amt',text:rupee(total)})),
       list.map(rowEl)
@@ -616,7 +779,7 @@ function renderLog(){
   });
 }
 function renderText(){
-  $('textOut').textContent=buildText(state.view,entriesOf(state.view),state.settings.budget);
+  $('textOut').textContent=buildText(state.view,entriesOf(state.view),state.settings.budget,currentBalance());
 }
 function chip(id,label,shared){
   return h('button',{type:'button',class:'chip','aria-pressed':String(state.sel===id),onclick:function(){selectItem(id);}},label,shared?h('span',{class:'tag',text:'shared'}):null);
@@ -640,6 +803,7 @@ function renderSettings(){
   var gl=$('groupList');gl.replaceChildren();
   var seen={};
   state.settings.items.forEach(function(i){if(!seen[i.group]){seen[i.group]=1;gl.append(h('option',{value:i.group}));}});
+  renderLimits();renderRepeats();$('themeSel').value=loadTheme();
 }
 function itemRow(it){
   var share=h('input',{type:'text',inputmode:'numeric',value:String(it.share),'aria-label':'My share percent for '+it.name});
@@ -648,7 +812,8 @@ function itemRow(it){
     oninput:function(ev){it.name=ev.target.value;touchSettings();},
     onchange:function(ev){if(!ev.target.value.trim()){ev.target.value='Item';it.name='Item';touchSettings();}renderChips();}});
   var group=h('input',{type:'text',class:'g',maxlength:'30',value:it.group,list:'groupList','aria-label':'Group for '+it.name,
-    oninput:function(ev){it.group=ev.target.value.trim()||'Other';touchSettings();}});
+    oninput:function(ev){it.group=ev.target.value.trim()||'Other';touchSettings();},
+    onchange:function(){renderLimits();}});
   var chk=h('input',{type:'checkbox','aria-label':'Shared with roommate: '+it.name,
     onchange:function(ev){it.shared=ev.target.checked;share.disabled=!it.shared;touchSettings();renderChips();}});
   chk.checked=it.shared;
@@ -666,7 +831,8 @@ function itemRow(it){
   );
 }
 function renderAll(){
-  renderNotice();renderTop();renderSummary();renderLog();renderChips();renderForm();
+  renderNotice();renderNudge();renderTop();renderSummary();renderBalance();renderQuick();renderLog();renderChips();renderForm();
+  if(state.tab==='insights')renderInsights();
   if(state.tab==='text')renderText();
   var st=$('settings');
   if(!st.hidden&&!st.contains(document.activeElement))renderSettings();
@@ -679,10 +845,10 @@ function touchSettings(){
   clearTimeout(saveTimer);
   saveTimer=setTimeout(function(){
     state.dirty=false;
-    var payload={budget:state.settings.budget,items:JSON.parse(JSON.stringify(state.settings.items))};
+    var payload={budget:state.settings.budget,items:JSON.parse(JSON.stringify(state.settings.items)),groupBudgets:JSON.parse(JSON.stringify(state.settings.groupBudgets)),recurring:JSON.parse(JSON.stringify(state.settings.recurring))};
     enqueue(function(){return store.set('settings',payload);});
   },500);
-  renderSummary();
+  renderSummary();renderQuick();
 }
 
 /* entries */
@@ -720,23 +886,25 @@ function selectItem(id){
   if(!state.editing){
     var last=lastAmount(id);
     $('amount').value=last!=null?String(last):'';
+    $('paidBy').value='me';
   }
   if(id==='other')$('otherName').focus();
   else{$('amount').focus();$('amount').select();}
   updatePreview();
 }
-function syncShareUI(){$('shareInput').disabled=!$('sharedChk').checked;}
+function syncShareUI(){var on=$('sharedChk').checked;$('shareInput').disabled=!on;$('paidByWrap').hidden=!on;}
 function updatePreview(){
   var p=$('preview'),shared=$('sharedChk').checked,amt=parseAmount($('amount').value);
   if(!shared){p.textContent='';return;}
   if(amt==null){p.textContent='Enter the total you paid to see your share.';return;}
   var m=round2(amt*clampShare($('shareInput').value)/100);
-  p.textContent='You pay '+rupee(m)+' of '+rupee(amt)+". Roommate's share: "+rupee(round2(amt-m))+'.';
+  if($('paidBy').value==='roommate')p.textContent='Roommate paid '+rupee(amt)+'. Your share is '+rupee(m)+', which you owe them.';
+  else p.textContent='You pay '+rupee(m)+' of '+rupee(amt)+". Roommate's share: "+rupee(round2(amt-m))+'.';
 }
 function resetForm(){
   state.editing=null;state.sel=null;
   $('otherWrap').hidden=true;$('otherName').value='';$('amount').value='';$('note').value='';
-  $('sharedChk').checked=false;$('shareInput').value='50';syncShareUI();
+  $('sharedChk').checked=false;$('shareInput').value='50';$('paidBy').value='me';syncShareUI();
   $('formError').textContent='';$('formTitle').textContent='Add an expense';
   renderChips();renderForm();updatePreview();
 }
@@ -748,7 +916,7 @@ function startEdit(e){
   $('otherWrap').hidden=!!known;$('otherName').value=known?'':e.name;
   $('amount').value=String(e.amount);$('date').value=e.date;$('note').value=e.note||'';
   var shared=e.share<100;
-  $('sharedChk').checked=shared;$('shareInput').value=String(shared?e.share:50);syncShareUI();
+  $('sharedChk').checked=shared;$('shareInput').value=String(shared?e.share:50);$('paidBy').value=e.paidBy==='roommate'?'roommate':'me';syncShareUI();
   $('formTitle').textContent='Edit expense';$('formError').textContent='';
   renderForm();updatePreview();
   $('entryForm').scrollIntoView({block:'nearest',behavior:'smooth'});
@@ -775,13 +943,255 @@ function submitForm(ev){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){err.textContent='Pick a date.';return;}
   var shared=$('sharedChk').checked,share=shared?clampShare($('shareInput').value):100;
   var old=state.editing;
-  var entry={id:old?old.id:newId(),t:old?old.t:Date.now(),date:date,item:itemId,name:name,group:group,amount:amount,share:share,note:$('note').value.trim().slice(0,80)};
+  var paidBy=(shared&&$('paidBy').value==='roommate')?'roommate':'me';
+  var entry={id:old?old.id:newId(),t:old?old.t:Date.now(),date:date,item:itemId,name:name,group:group,amount:amount,share:share,paidBy:paidBy,note:$('note').value.trim().slice(0,80)};
   saveEntry(entry,old);
   var k=monthKey(date);
   toast((old?'Updated ':'Added ')+name+' '+rupee(mine(entry))+(k!==state.view?' in '+monthName(k):'')+'.');
   resetForm();
   var first=$('chips').querySelector('button');
   if(first)first.focus();
+}
+
+/* roommate balance */
+function settlements(){
+  var d=state.docs.settle;
+  return (d&&Array.isArray(d.items))?d.items.filter(function(x){return x&&typeof x.amount==='number'&&(x.dir==='got'||x.dir==='gave');}):[];
+}
+function currentBalance(){
+  var all=allEntries().filter(function(e){return typeof e.amount==='number';});
+  return balanceOf(all,settlements());
+}
+function renderBalance(){
+  var all=allEntries().filter(function(e){return typeof e.amount==='number';}),sets=settlements();
+  var any=sets.length>0||all.some(function(e){return e.share!=null&&e.share<100;});
+  $('balCard').hidden=!any;
+  if(!any)return;
+  var b=balanceOf(all,sets),n=$('balNum'),note=$('balNote');
+  if(b>0){n.textContent='Owes you '+rupee(b);n.className='balnum pos';note.textContent='Your roommate owes you this much for shared items.';}
+  else if(b<0){n.textContent='You owe '+rupee(-b);n.className='balnum neg';note.textContent='You owe your roommate this much for shared items.';}
+  else{n.textContent='All settled';n.className='balnum';note.textContent='Shared items are even. Record a payment below when money changes hands.';}
+  var ul=$('setList');ul.replaceChildren();
+  sets.slice().sort(function(a,c){return a.date<c.date?1:(a.date>c.date?-1:0);}).slice(0,5).forEach(function(x){
+    ul.append(h('li',null,
+      h('span',null,dayLabel(x.date)+' · '+(x.dir==='got'?'Roommate paid me ':'I paid roommate ')+rupee(x.amount)),
+      h('button',{type:'button',class:'link danger','aria-label':'Delete payment of '+rupee(x.amount)+' on '+dayLabel(x.date),onclick:function(){removeSettlement(x);}},'Delete')));
+  });
+}
+function addSettlement(dir){
+  var amt=parseAmount($('setAmt').value),err=$('setErr');
+  if(amt==null){err.textContent='Enter the amount, like 300.';return;}
+  err.textContent='';
+  var x={id:newId(),date:todayISO(),amount:amt,dir:dir};
+  store.set('settle',{items:settlements().concat([x])});
+  $('setAmt').value='';
+  toast(dir==='got'?'Recorded '+rupee(amt)+' received from your roommate.':'Recorded '+rupee(amt)+' paid to your roommate.',function(){
+    store.set('settle',{items:settlements().filter(function(y){return y.id!==x.id;})});
+  });
+}
+function removeSettlement(x){
+  store.set('settle',{items:settlements().filter(function(y){return y.id!==x.id;})});
+  toast('Deleted the payment of '+rupee(x.amount)+'.',function(){store.set('settle',{items:settlements().concat([x])});});
+}
+
+/* quick add */
+function dropEntry(e){
+  enqueue(function(){
+    var k=monthKey(e.date);
+    return store.set('m-'+k,{entries:entriesOf(k).filter(function(y){return y.id!==e.id;})});
+  });
+}
+function quickCandidates(){
+  var counts={};
+  allEntries().forEach(function(e){if(e.item&&item(e.item))counts[e.item]=(counts[e.item]||0)+1;});
+  return state.settings.items.filter(function(i){return counts[i.id]&&lastAmount(i.id)!=null;})
+    .sort(function(a,b){return counts[b.id]-counts[a.id];}).slice(0,6);
+}
+function renderQuick(){
+  var box=$('quickChips'),c=quickCandidates();
+  $('quickCard').hidden=c.length===0;
+  if(!c.length)return;
+  box.replaceChildren();
+  c.forEach(function(i){
+    var amt=lastAmount(i.id);
+    box.append(h('button',{type:'button',class:'chip','aria-label':'Log '+i.name+' '+rupee(amt)+' for today',onclick:function(){quickAdd(i);}},i.name,h('span',{class:'qa',text:rupee(amt)})));
+  });
+}
+function quickAdd(i){
+  var amt=lastAmount(i.id);
+  if(amt==null)return;
+  var entry={id:newId(),t:Date.now(),date:todayISO(),item:i.id,name:i.name,group:i.group,amount:amt,share:i.shared?i.share:100,paidBy:'me',note:''};
+  state.view=monthKey(entry.date);
+  saveEntry(entry,null);
+  toast('Added '+i.name+' '+rupee(mine(entry))+' for today.',function(){dropEntry(entry);});
+}
+
+/* nudge: a gentle reminder to log meals */
+function renderNudge(){
+  var n=$('nudge'),today=todayISO(),hr=new Date().getHours(),pick=null;
+  n.hidden=true;
+  if(state.view!==monthKey(today))return;
+  var todays=entriesOf(monthKey(today)).filter(function(e){return e.date===today;});
+  function has(id){return todays.some(function(e){return e.item===id;});}
+  var d=item('dinner'),l=item('lunch');
+  if(hr>=21&&d&&!has('dinner'))pick=d;
+  else if(hr>=14&&hr<21&&l&&!has('lunch'))pick=l;
+  if(!pick||state.nudgeOff[pick.id])return;
+  n.replaceChildren(
+    h('span',{text:pick.name+' is not logged yet today.'}),
+    h('span',{class:'actions'},
+      h('button',{type:'button',class:'link',onclick:function(){selectItem(pick.id);}},'Add it'),
+      h('button',{type:'button',class:'link',onclick:function(){state.nudgeOff[pick.id]=true;n.hidden=true;}},'Not today')));
+  n.hidden=false;
+}
+
+/* monthly repeats */
+function applyRecurring(){
+  var rules=state.settings.recurring||[];
+  if(!rules.length)return;
+  var today=todayISO(),mk=monthKey(today),dim=daysIn(mk),dn=Number(today.slice(8,10));
+  var done=(state.docs.rec&&state.docs.rec.done)?Object.assign({},state.docs.rec.done):{};
+  var add=[],changed=false;
+  rules.forEach(function(r){
+    if(!(r.amount>0))return;
+    var key=r.id+'@'+mk,day=Math.min(r.day,dim);
+    if(done[key]||dn<day)return;
+    done[key]=1;changed=true;
+    add.push({id:newId(),t:Date.now()+add.length,date:mk+'-'+pad2(day),item:'repeat',name:r.name,group:r.group,amount:r.amount,share:r.shared?r.share:100,paidBy:'me',note:'Monthly'});
+  });
+  if(!changed)return;
+  store.set('m-'+mk,{entries:entriesOf(mk).concat(add)});
+  store.set('rec',{done:done});
+}
+function groupNames(){
+  var seen={},out=[];
+  state.settings.items.concat(state.settings.recurring||[]).forEach(function(i){var g=i.group||'Other';if(!seen[g]){seen[g]=1;out.push(g);}});
+  if(!seen.Other)out.push('Other');
+  return out;
+}
+function renderLimits(){
+  var box=$('limitRows');box.replaceChildren();
+  var lims=state.settings.groupBudgets;
+  groupNames().forEach(function(g){
+    var inp=h('input',{type:'text',inputmode:'numeric',placeholder:'No limit','aria-label':'Monthly limit for '+g,value:lims[g]?String(lims[g]):'',
+      oninput:function(ev){
+        var n=parseFloat(String(ev.target.value).replace(/[,\s₹]/g,''));
+        if(isFinite(n)&&n>0)lims[g]=n;else delete lims[g];
+        touchSettings();
+      }});
+    box.append(h('div',{class:'itemrow'},h('span',{class:'n',text:g}),h('span',{class:'money lim'},h('span',{'aria-hidden':'true',text:'₹'}),inp)));
+  });
+}
+function renderRepeats(){
+  var box=$('repRows');box.replaceChildren();
+  state.settings.recurring.forEach(function(r){box.append(repRow(r));});
+}
+function repRow(r){
+  var share=h('input',{type:'text',inputmode:'numeric',value:String(r.share),'aria-label':'My share percent for '+r.name});
+  share.disabled=!r.shared;
+  share.addEventListener('input',function(ev){r.share=clampShare(ev.target.value);touchSettings();});
+  var chk=h('input',{type:'checkbox','aria-label':'Shared with roommate: '+r.name,onchange:function(ev){r.shared=ev.target.checked;share.disabled=!r.shared;touchSettings();}});
+  chk.checked=r.shared;
+  return h('div',{class:'itemrow'},
+    h('input',{type:'text',class:'n',maxlength:'40',value:r.name,'aria-label':'Monthly item name',oninput:function(ev){r.name=ev.target.value;touchSettings();}}),
+    h('input',{type:'text',class:'g',maxlength:'30',value:r.group,list:'groupList','aria-label':'Group for '+r.name,
+      oninput:function(ev){r.group=ev.target.value.trim()||'Other';touchSettings();},onchange:function(){renderLimits();}}),
+    h('span',{class:'money lim'},h('span',{'aria-hidden':'true',text:'₹'}),
+      h('input',{type:'text',inputmode:'decimal',placeholder:'Amount',value:r.amount?String(r.amount):'','aria-label':'Amount for '+r.name,
+        oninput:function(ev){var n=parseAmount(ev.target.value);r.amount=n==null?0:n;touchSettings();}})),
+    h('span',{class:'sp'},h('input',{type:'text',inputmode:'numeric',placeholder:'Day 1-28',value:String(r.day),'aria-label':'Day of the month for '+r.name,
+      oninput:function(ev){var n=parseInt(ev.target.value,10);if(isFinite(n)){r.day=Math.min(28,Math.max(1,n));touchSettings();}}})),
+    h('label',{class:'check'},chk,'Shared'),
+    h('span',{class:'money suffix sp'},share,h('span',{'aria-hidden':'true',text:'%'})),
+    h('button',{type:'button',class:'link danger','aria-label':'Remove '+r.name,onclick:function(){
+      state.settings.recurring=state.settings.recurring.filter(function(x){return x!==r;});
+      touchSettings();renderRepeats();renderLimits();
+    }},'Remove')
+  );
+}
+
+/* insights */
+function svgEl(tag,attrs){
+  var el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  Object.keys(attrs||{}).forEach(function(k){el.setAttribute(k,attrs[k]);});
+  return el;
+}
+function compact(n){return n>=1000?(Math.round(n/100)/10)+'k':String(Math.round(n));}
+function dailyChart(key,vals,allow){
+  var dim=vals.length,W=320,H=150,L=34,R=6,T=10,B=20,pw=W-L-R,ph=H-T-B;
+  var maxV=niceMax(Math.max.apply(null,vals.concat([allow]))*1.05),bw=pw/dim;
+  var hi=0;vals.forEach(function(v,i){if(v>vals[hi])hi=i;});
+  var svg=svgEl('svg',{viewBox:'0 0 '+W+' '+H,'class':'chart',role:'img','aria-label':'Daily spending for '+monthName(key)+'. Highest day: '+dayLabel(key+'-'+pad2(hi+1))+', '+rupee(vals[hi])+'.'});
+  [0,0.5,1].forEach(function(f){
+    var y=T+ph-f*ph;
+    svg.append(svgEl('line',{x1:L,x2:W-R,y1:y,y2:y,'class':'gridl'}));
+    var t=svgEl('text',{x:L-4,y:y+3,'text-anchor':'end'});t.textContent=compact(f*maxV);svg.append(t);
+  });
+  vals.forEach(function(v,i){
+    if(v<=0)return;
+    var hgt=Math.max(1,v/maxV*ph);
+    svg.append(svgEl('rect',{x:L+i*bw+bw*0.15,y:T+ph-hgt,width:bw*0.7,height:hgt,rx:1,'class':'bar'+(allow>0&&v>allow?' over':'')}));
+  });
+  if(allow>0){var ay=T+ph-allow/maxV*ph;svg.append(svgEl('line',{x1:L,x2:W-R,y1:ay,y2:ay,'class':'allow'}));}
+  [1,8,15,22,dim].forEach(function(d,i,arr){
+    if(i>0&&arr[i-1]===d)return;
+    var t=svgEl('text',{x:L+(d-0.5)*bw,y:H-5,'text-anchor':'middle'});t.textContent=String(d);svg.append(t);
+  });
+  return svg;
+}
+function renderInsights(){
+  var box=$('insightView'),key=state.view,entries=entriesOf(key);
+  box.replaceChildren();
+  if(!entries.length){
+    box.append(h('div',{class:'empty'},
+      h('p',{class:'empty-title',text:'Nothing to show for '+monthName(key)+' yet.'}),
+      h('p',{text:'Charts appear after you log a few days.'})));
+    return;
+  }
+  var st=monthStats(entries),budget=state.settings.budget,vals=dailyTotals(entries,key),dim=vals.length;
+  var allow=budget>0?round2(budget/dim):0;
+  var hi=0;vals.forEach(function(v,i){if(v>vals[hi])hi=i;});
+  var legend=allow>0?'Dashed line: '+rupee(Math.round(allow))+' a day, an even spread of your budget. Amber bars went above it.':'Each bar is one day of your spending.';
+  var prevKey=shiftMonth(key,-1),prev=entriesOf(prevKey),curKey=monthKey(todayISO());
+  var prevName=MONTHS[Number(prevKey.slice(5,7))-1],cmp,delta=null;
+  if(key>curKey)cmp='This month has not started yet.';
+  else if(!prev.length)cmp='There are no entries for '+monthName(prevKey)+' to compare with.';
+  else{
+    var prevAll=monthStats(prev).total;
+    if(key===curKey){
+      var cut=Number(todayISO().slice(8,10)),now=sumUpTo(entries,cut),base=sumUpTo(prev,cut);
+      cmp='By day '+cut+' you have spent '+rupee(now)+', against '+rupee(base)+' by the same day in '+prevName+'. All of '+prevName+' came to '+rupee(prevAll)+'.';
+      delta=round2(now-base);
+    }else{
+      cmp=monthName(key)+' came to '+rupee(st.total)+', against '+rupee(prevAll)+' in '+prevName+'.';
+      delta=round2(st.total-prevAll);
+    }
+  }
+  var pill=null;
+  if(delta!=null)pill=h('span',{class:'pill '+(delta>0?'warn':(delta<0?'good':'')),text:delta>0?rupee(delta)+' more than '+prevName:(delta<0?rupee(-delta)+' less than '+prevName:'Same as '+prevName)});
+  var top=topItems(entries,5);
+  box.append(h('div',{class:'insight'},
+    h('div',{class:'card cmp'},
+      h('h3',{text:'Spending by day'}),
+      h('div',{class:'chartwrap'},dailyChart(key,vals,allow)),
+      h('p',{class:'small muted',text:legend})),
+    h('div',{class:'card cmp'},
+      h('h3',{text:'Compared with '+monthName(prevKey)}),
+      h('p',{text:cmp}),
+      pill?h('div',null,pill):null),
+    h('div',{class:'card cmp'},
+      h('h3',{text:'Biggest items'}),
+      h('ul',{class:'toplist'},top.map(function(t){return h('li',null,h('span',{text:t.name+(t.count>1?' x'+t.count:'')}),h('span',{class:'amt',text:rupee(t.total)}));})),
+      h('p',{class:'small muted',text:'Highest day: '+dayLabel(key+'-'+pad2(hi+1))+', '+rupee(vals[hi])+'.'}))
+  ));
+}
+
+/* appearance */
+var THEME_KEY='daily-spend-log:theme';
+function loadTheme(){try{return localStorage.getItem(THEME_KEY)||'auto';}catch(e){return 'auto';}}
+function applyTheme(t){
+  var r=document.documentElement;
+  if(t==='light'||t==='dark')r.setAttribute('data-theme',t);else r.removeAttribute('data-theme');
 }
 
 /* small UI helpers */
@@ -796,9 +1206,12 @@ function toast(msg,undo){
 }
 function setTab(t){
   state.tab=t;
-  $('dayList').hidden=t!=='days';$('textView').hidden=t!=='text';
+  $('dayList').hidden=t!=='days';$('insightView').hidden=t!=='insights';$('textView').hidden=t!=='text';
   $('tabDays').setAttribute('aria-selected',String(t==='days'));
+  $('tabInsights').setAttribute('aria-selected',String(t==='insights'));
   $('tabText').setAttribute('aria-selected',String(t==='text'));
+  if(t==='days')renderLog();else $('filters').hidden=true;
+  if(t==='insights')renderInsights();
   if(t==='text')renderText();
 }
 
@@ -813,6 +1226,28 @@ $('nextM').addEventListener('click',function(){state.view=shiftMonth(state.view,
 $('thisMonth').addEventListener('click',function(){state.view=monthKey(todayISO());renderAll();});
 $('tabDays').addEventListener('click',function(){setTab('days');});
 $('tabText').addEventListener('click',function(){setTab('text');});
+$('tabInsights').addEventListener('click',function(){setTab('insights');});
+$('q').addEventListener('input',function(ev){state.q=ev.target.value.trim().toLowerCase();renderLog();});
+$('gf').addEventListener('change',function(ev){state.gf=ev.target.value;renderLog();});
+$('paidBy').addEventListener('change',updatePreview);
+$('setGot').addEventListener('click',function(){addSettlement('got');});
+$('setGave').addEventListener('click',function(){addSettlement('gave');});
+$('csvBtn').addEventListener('click',function(){
+  download('spend-log-'+state.view+'.csv','text/csv',buildCSV(entriesOf(state.view)));
+  toast('Saved the CSV for '+monthName(state.view)+'. Look in your Downloads.');
+});
+$('themeSel').addEventListener('change',function(ev){
+  var v=ev.target.value;
+  try{localStorage.setItem(THEME_KEY,v);}catch(e){}
+  applyTheme(v);
+});
+$('addRep').addEventListener('click',function(){
+  state.settings.recurring.push({id:newId(),name:'Monthly item',group:'Other',amount:0,day:1,shared:false,share:50});
+  touchSettings();renderRepeats();renderLimits();
+  var names=$('repRows').querySelectorAll('input.n');
+  var last=names[names.length-1];
+  if(last){last.focus();last.select();}
+});
 $('settingsBtn').addEventListener('click',function(){
   var st=$('settings'),open=st.hidden;
   st.hidden=!open;
@@ -831,7 +1266,7 @@ $('addItem').addEventListener('click',function(){
   if(last){last.focus();last.select();}
 });
 $('copyBtn').addEventListener('click',async function(){
-  var txt=buildText(state.view,entriesOf(state.view),state.settings.budget);
+  var txt=buildText(state.view,entriesOf(state.view),state.settings.budget,currentBalance());
   try{await navigator.clipboard.writeText(txt);toast('Copied the log for '+monthName(state.view)+'.');}
   catch(e){
     var r=document.createRange();r.selectNodeContents($('textOut'));
@@ -840,7 +1275,7 @@ $('copyBtn').addEventListener('click',async function(){
   }
 });
 $('dlBtn').addEventListener('click',function(){
-  download('spend-log-'+state.view+'.txt','text/plain',buildText(state.view,entriesOf(state.view),state.settings.budget));
+  download('spend-log-'+state.view+'.txt','text/plain',buildText(state.view,entriesOf(state.view),state.settings.budget,currentBalance()));
   toast('Saved the log for '+monthName(state.view)+'. Look in your Downloads.');
 });
 $('exportBtn').addEventListener('click',exportBackup);
@@ -850,11 +1285,13 @@ $('importFile').addEventListener('change',function(ev){
   if(f)importBackup(f);
   ev.target.value='';
 });
-document.addEventListener('visibilitychange',function(){if(!document.hidden)renderAll();});
+document.addEventListener('visibilitychange',function(){if(!document.hidden){applyRecurring();renderAll();}});
 
 function init(){
   $('date').value=todayISO();
   load();
+  applyTheme(loadTheme());
+  applyRecurring();
   requestPersist();
   renderAll();
   updateBackupInfo();
