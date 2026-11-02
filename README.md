@@ -9,7 +9,8 @@ It works with no internet after the first open. Your entries are stored on your 
 - **Quick add:** one tap logs a regular item for today, with Undo.
 - **Budget meter** with a pace marker and a per-day figure for the rest of the month.
 - **Limits per group** (Settings): a group bar turns amber at 80% and red past the limit.
-- **Roommate balance:** track shared items, who paid at the shop, and payments between you. Shows who owes whom.
+- **Shared items by number of people:** set how many people share an item (counting yourself). Your part is the bill divided by that number.
+- **Balance with others:** tracks who paid at the shop and payments between you, and shows who owes whom.
 - **Insights tab:** spending by day, comparison with last month, and your biggest items.
 - **Monthly repeats** (Settings): items added to your log automatically on the day you choose.
 - **Search and group filter** on the By day list.

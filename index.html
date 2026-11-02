@@ -115,7 +115,7 @@ fieldset{border:0;padding:0;margin:0;min-width:0}
 .check{display:inline-flex;align-items:center;gap:8px;color:var(--fg);font-size:15px;font-weight:500;margin:0;cursor:pointer}
 .check input{width:18px;height:18px;margin:0;accent-color:var(--accent)}
 .sharepct{display:flex;align-items:center;gap:8px;margin:0}
-.sharepct .money{width:96px}
+.sharepct input{width:72px;text-align:center;font-family:var(--font-num);font-variant-numeric:tabular-nums}
 
 /* summary */
 .summary{display:grid;gap:12px}
@@ -240,7 +240,7 @@ svg.chart .allow{stroke:var(--fg);stroke-width:1;stroke-dasharray:3 3}
       </div>
       <div>
         <h3>Items you buy</h3>
-        <p class="hint">These become the quick buttons on the add form. Mark an item shared if you split it with your roommate. Your share is what counts as your spending.</p>
+        <p class="hint">These become the quick buttons on the add form. Mark an item shared if you split it with others, and set how many people share it, counting yourself. Your part of the bill is what counts as your spending.</p>
         <div id="itemRows"></div>
         <datalist id="groupList"></datalist>
       </div>
@@ -320,14 +320,14 @@ svg.chart .allow{stroke:var(--fg);stroke-width:1;stroke-dasharray:3 3}
         </div>
         <div class="sharebox">
           <div class="sharerow">
-            <label class="check" for="sharedChk"><input type="checkbox" id="sharedChk"> Shared with my roommate</label>
-            <label class="sharepct" for="shareInput">My share
-              <span class="money suffix"><input id="shareInput" type="text" inputmode="numeric" value="50" autocomplete="off"><span aria-hidden="true">%</span></span>
+            <label class="check" for="sharedChk"><input type="checkbox" id="sharedChk"> Shared with others</label>
+            <label class="sharepct" for="peopleInput">People sharing
+              <input id="peopleInput" type="text" inputmode="numeric" value="2" autocomplete="off">
             </label>
           </div>
           <div class="field" id="paidByWrap" hidden>
             <label for="paidBy">Who paid at the shop?</label>
-            <select id="paidBy"><option value="me">I paid</option><option value="roommate">Roommate paid</option></select>
+            <select id="paidBy"><option value="me">I paid</option><option value="roommate">Someone else paid</option></select>
           </div>
           <p class="hint" id="preview" aria-live="polite" style="margin:0"></p>
         </div>
@@ -343,7 +343,7 @@ svg.chart .allow{stroke:var(--fg);stroke-width:1;stroke-dasharray:3 3}
       </form>
 
       <section class="card balance" id="balCard" aria-labelledby="balH" hidden>
-        <h2 id="balH" class="eyebrow">Roommate balance</h2>
+        <h2 id="balH" class="eyebrow">Balance with others</h2>
         <div class="balnum" id="balNum"></div>
         <p class="small muted" id="balNote"></p>
         <div class="field">
@@ -351,8 +351,8 @@ svg.chart .allow{stroke:var(--fg);stroke-width:1;stroke-dasharray:3 3}
           <div class="money"><span aria-hidden="true">&#8377;</span><input id="setAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="0"></div>
         </div>
         <div class="actions">
-          <button class="btn ghost sm" id="setGot" type="button">Roommate paid me</button>
-          <button class="btn ghost sm" id="setGave" type="button">I paid roommate</button>
+          <button class="btn ghost sm" id="setGot" type="button">They paid me</button>
+          <button class="btn ghost sm" id="setGave" type="button">I paid them</button>
         </div>
         <p class="err" id="setErr" role="alert"></p>
         <ul class="setlist" id="setList"></ul>
@@ -406,7 +406,21 @@ function daysIn(key){var p=key.split('-').map(Number);return new Date(p[0],p[1],
 function shiftMonth(key,delta){var p=key.split('-').map(Number);var d=new Date(p[0],p[1]-1+delta,1);return d.getFullYear()+'-'+pad2(d.getMonth()+1);}
 function monthName(key){var p=key.split('-').map(Number);return MONTHS[p[1]-1]+' '+p[0];}
 function dayLabel(iso){var p=iso.split('-').map(Number);var dt=new Date(p[0],p[1]-1,p[2]);return WD[dt.getDay()]+' '+p[2]+' '+MON[p[1]-1];}
-function mine(e){return round2(e.amount*(e.share==null?100:e.share)/100);}
+function clampPeople(v){var n=Math.round(Number(v));return isFinite(n)?Math.min(20,Math.max(2,n)):2;}
+function peopleOf(e){
+  if(e.people>=2)return clampPeople(e.people);
+  var sh=e.share==null?100:e.share;
+  return sh>=100?1:Math.max(2,Math.round(100/sh));
+}
+function peopleFromItem(i){
+  if(i.people>=2)return clampPeople(i.people);
+  var sh=Number(i.share);
+  return (sh>0&&sh<100)?Math.max(2,Math.round(100/sh)):2;
+}
+function mine(e){
+  if(e.people>=2)return round2(e.amount/clampPeople(e.people));
+  return round2(e.amount*(e.share==null?100:e.share)/100);
+}
 function clampShare(v){
   if(v===''||v==null)return 50;
   var n=Number(v);
@@ -464,20 +478,19 @@ function buildText(key,entries,budget,balance){
       var label=e.name+(e.note?' ('+e.note+')':'');
       if(label.length>30)label=label.slice(0,29)+'…';
       var line='  '+(label+' ').padEnd(31,'.')+' '+rupee(m);
-      if(m!==e.amount)line+='  (paid '+rupee(e.amount)+(e.paidBy==='roommate'?' by roommate':'')+', your share '+e.share+'%)';
+      if(m!==e.amount)line+='  (paid '+rupee(e.amount)+(e.paidBy==='roommate'?' by someone else':'')+', split between '+peopleOf(e)+' people)';
       L.push(line);
     });
     L.push('  '+'Day total '.padEnd(31,'.')+' '+rupee(round2(dayTotal)));
     L.push('');
   });
   if(!entries.length)L.push('No entries yet.');
-  else if(st.roommate>0)L.push("Roommate's share on shared items: "+rupee(st.roommate)+' (not counted in Spent)');
-  if(balance)L.push('Roommate balance, all time: '+(balance>0?'roommate owes you ':'you owe roommate ')+rupee(Math.abs(balance)));
+  else if(st.roommate>0)L.push("Others' share on shared items: "+rupee(st.roommate)+' (not counted in Spent)');
+  if(balance)L.push('Balance with others, all time: '+(balance>0?'they owe you ':'you owe them ')+rupee(Math.abs(balance)));
   return L.join('\n').replace(/\s+$/,'')+'\n';
 }
 function entryBalance(e){
-  var sh=e.share==null?100:e.share;
-  if(sh>=100)return 0;
+  if(peopleOf(e)<2)return 0;
   var m=mine(e);
   return e.paidBy==='roommate'?-m:round2(e.amount-m);
 }
@@ -489,9 +502,9 @@ function balanceOf(entries,settlements){
 }
 function csvCell(v){var t=String(v==null?'':v);return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;}
 function buildCSV(entries){
-  var rows=[['Date','Item','Group','Amount paid','My share %','My cost','Paid by','Note']];
+  var rows=[['Date','Item','Group','Amount paid','People sharing','My cost','Paid by','Note']];
   entries.slice().sort(sortEntries).forEach(function(e){
-    rows.push([e.date,e.name,e.group||'Other',e.amount,e.share==null?100:e.share,mine(e),e.paidBy==='roommate'?'Roommate':'Me',e.note||'']);
+    rows.push([e.date,e.name,e.group||'Other',e.amount,peopleOf(e),mine(e),e.paidBy==='roommate'?'Someone else':'Me',e.note||'']);
   });
   return rows.map(function(r){return r.map(csvCell).join(',');}).join('\n')+'\n';
 }
@@ -525,13 +538,13 @@ var DEFAULTS={
   groupBudgets:{},
   recurring:[],
   items:[
-    {id:'lunch',name:'Lunch',group:'Food court',shared:false,share:50},
-    {id:'dinner',name:'Dinner',group:'Food court',shared:false,share:50},
-    {id:'buttermilk',name:'Buttermilk',group:'Snacks and drinks',shared:false,share:50},
-    {id:'mints',name:'Mints',group:'Snacks and drinks',shared:false,share:50},
-    {id:'oats',name:'Oats / muesli',group:'Groceries',shared:true,share:50},
-    {id:'bread',name:'Bread',group:'Groceries',shared:true,share:50},
-    {id:'milk',name:'Milk (tetra packs)',group:'Groceries',shared:true,share:50}
+    {id:'lunch',name:'Lunch',group:'Food court',shared:false,people:2},
+    {id:'dinner',name:'Dinner',group:'Food court',shared:false,people:2},
+    {id:'buttermilk',name:'Buttermilk',group:'Snacks and drinks',shared:false,people:2},
+    {id:'mints',name:'Mints',group:'Snacks and drinks',shared:false,people:2},
+    {id:'oats',name:'Oats / muesli',group:'Groceries',shared:true,people:2},
+    {id:'bread',name:'Bread',group:'Groceries',shared:true,people:2},
+    {id:'milk',name:'Milk (tetra packs)',group:'Groceries',shared:true,people:2}
   ]
 };
 
@@ -610,7 +623,7 @@ function normSettings(s){
   if(typeof s.budget==='number'&&s.budget>=0)out.budget=s.budget;
   if(Array.isArray(s.items)){
     out.items=s.items.filter(function(i){return i&&i.id&&typeof i.name==='string';}).map(function(i){
-      return {id:String(i.id),name:i.name,group:(typeof i.group==='string'&&i.group)?i.group:'Other',shared:!!i.shared,share:clampShare(i.share)};
+      return {id:String(i.id),name:i.name,group:(typeof i.group==='string'&&i.group)?i.group:'Other',shared:!!i.shared,people:peopleFromItem(i)};
     });
   }
   out.groupBudgets={};
@@ -618,7 +631,7 @@ function normSettings(s){
     Object.keys(s.groupBudgets).forEach(function(k){var v=Number(s.groupBudgets[k]);if(v>0)out.groupBudgets[k]=v;});
   }
   out.recurring=Array.isArray(s.recurring)?s.recurring.filter(function(r){return r&&r.id&&typeof r.name==='string'&&Number(r.amount)>0;}).map(function(r){
-    return {id:String(r.id),name:r.name,group:(typeof r.group==='string'&&r.group)?r.group:'Other',amount:Number(r.amount),day:Math.min(28,Math.max(1,Math.round(Number(r.day)||1))),shared:!!r.shared,share:clampShare(r.share)};
+    return {id:String(r.id),name:r.name,group:(typeof r.group==='string'&&r.group)?r.group:'Other',amount:Number(r.amount),day:Math.min(28,Math.max(1,Math.round(Number(r.day)||1))),shared:!!r.shared,people:peopleFromItem(r)};
   }):[];
   return out;
 }
@@ -716,11 +729,11 @@ function renderSummary(){
     ul.append(h('li',null,h('div',{class:'gl'},h('span',{text:name}),h('span',{class:'amt',text:right})),h('div',{class:'gbar'},bar)));
   });
   $('avgLine').textContent=st.days>0?'Average '+rupee(round2(st.total/st.days))+' on the '+st.days+(st.days===1?' day':' days')+' you logged.':'';
-  $('roommateLine').textContent=st.roommate>0?"Roommate's share on shared items: "+rupee(st.roommate)+'. It is not counted above.':'';
+  $('roommateLine').textContent=st.roommate>0?"Others' share on shared items: "+rupee(st.roommate)+'. It is not counted above.':'';
 }
 function rowEl(e){
   var m=mine(e),shared=m!==e.amount;
-  var meta=[e.note,shared?'Paid '+rupee(e.amount)+(e.paidBy==='roommate'?' by roommate':'')+', your share '+e.share+'%':''].filter(Boolean).join(' · ');
+  var meta=[e.note,shared?'Paid '+rupee(e.amount)+(e.paidBy==='roommate'?' by someone else':'')+', split between '+peopleOf(e)+' people':''].filter(Boolean).join(' · ');
   var when=dayLabel(e.date);
   return h('div',{class:'row'},
     h('div',{class:'what'},h('div',{class:'name',text:e.name}),meta?h('div',{class:'meta',text:meta}):null),
@@ -806,19 +819,19 @@ function renderSettings(){
   renderLimits();renderRepeats();$('themeSel').value=loadTheme();
 }
 function itemRow(it){
-  var share=h('input',{type:'text',inputmode:'numeric',value:String(it.share),'aria-label':'My share percent for '+it.name});
-  share.disabled=!it.shared;
+  var people=h('input',{type:'text',inputmode:'numeric',value:String(it.people),placeholder:'People','aria-label':'People sharing '+it.name});
+  people.disabled=!it.shared;
   var name=h('input',{type:'text',class:'n',maxlength:'40',value:it.name,'aria-label':'Item name',
     oninput:function(ev){it.name=ev.target.value;touchSettings();},
     onchange:function(ev){if(!ev.target.value.trim()){ev.target.value='Item';it.name='Item';touchSettings();}renderChips();}});
   var group=h('input',{type:'text',class:'g',maxlength:'30',value:it.group,list:'groupList','aria-label':'Group for '+it.name,
     oninput:function(ev){it.group=ev.target.value.trim()||'Other';touchSettings();},
     onchange:function(){renderLimits();}});
-  var chk=h('input',{type:'checkbox','aria-label':'Shared with roommate: '+it.name,
-    onchange:function(ev){it.shared=ev.target.checked;share.disabled=!it.shared;touchSettings();renderChips();}});
+  var chk=h('input',{type:'checkbox','aria-label':'Shared with others: '+it.name,
+    onchange:function(ev){it.shared=ev.target.checked;people.disabled=!it.shared;touchSettings();renderChips();}});
   chk.checked=it.shared;
-  share.addEventListener('input',function(ev){it.share=clampShare(ev.target.value);touchSettings();});
-  var pct=h('span',{class:'money suffix sp'},share,h('span',{'aria-hidden':'true',text:'%'}));
+  people.addEventListener('input',function(ev){it.people=clampPeople(ev.target.value);touchSettings();});
+  var pct=h('span',{class:'sp'},people);
   return h('div',{class:'itemrow'},
     name,group,
     h('label',{class:'check'},chk,'Shared'),
@@ -881,7 +894,7 @@ function selectItem(id){
   var it=item(id);
   $('otherWrap').hidden=id!=='other';
   $('sharedChk').checked=it?it.shared:false;
-  $('shareInput').value=String(it?it.share:50);
+  $('peopleInput').value=String(it&&it.shared?it.people:2);
   syncShareUI();
   if(!state.editing){
     var last=lastAmount(id);
@@ -892,19 +905,19 @@ function selectItem(id){
   else{$('amount').focus();$('amount').select();}
   updatePreview();
 }
-function syncShareUI(){var on=$('sharedChk').checked;$('shareInput').disabled=!on;$('paidByWrap').hidden=!on;}
+function syncShareUI(){var on=$('sharedChk').checked;$('peopleInput').disabled=!on;$('paidByWrap').hidden=!on;}
 function updatePreview(){
   var p=$('preview'),shared=$('sharedChk').checked,amt=parseAmount($('amount').value);
   if(!shared){p.textContent='';return;}
-  if(amt==null){p.textContent='Enter the total you paid to see your share.';return;}
-  var m=round2(amt*clampShare($('shareInput').value)/100);
-  if($('paidBy').value==='roommate')p.textContent='Roommate paid '+rupee(amt)+'. Your share is '+rupee(m)+', which you owe them.';
-  else p.textContent='You pay '+rupee(m)+' of '+rupee(amt)+". Roommate's share: "+rupee(round2(amt-m))+'.';
+  if(amt==null){p.textContent='Enter the total bill to see your part. Count yourself as one of the people.';return;}
+  var np=clampPeople($('peopleInput').value),m=round2(amt/np);
+  if($('paidBy').value==='roommate')p.textContent='Someone else paid '+rupee(amt)+'. Your part is '+rupee(m)+' (split between '+np+' people), which you owe them.';
+  else p.textContent='You pay '+rupee(m)+' of '+rupee(amt)+', split between '+np+' people. The others pay '+rupee(round2(amt-m))+' together.';
 }
 function resetForm(){
   state.editing=null;state.sel=null;
   $('otherWrap').hidden=true;$('otherName').value='';$('amount').value='';$('note').value='';
-  $('sharedChk').checked=false;$('shareInput').value='50';$('paidBy').value='me';syncShareUI();
+  $('sharedChk').checked=false;$('peopleInput').value='2';$('paidBy').value='me';syncShareUI();
   $('formError').textContent='';$('formTitle').textContent='Add an expense';
   renderChips();renderForm();updatePreview();
 }
@@ -915,8 +928,8 @@ function startEdit(e){
   renderChips();
   $('otherWrap').hidden=!!known;$('otherName').value=known?'':e.name;
   $('amount').value=String(e.amount);$('date').value=e.date;$('note').value=e.note||'';
-  var shared=e.share<100;
-  $('sharedChk').checked=shared;$('shareInput').value=String(shared?e.share:50);$('paidBy').value=e.paidBy==='roommate'?'roommate':'me';syncShareUI();
+  var shared=peopleOf(e)>1;
+  $('sharedChk').checked=shared;$('peopleInput').value=String(shared?peopleOf(e):2);$('paidBy').value=e.paidBy==='roommate'?'roommate':'me';syncShareUI();
   $('formTitle').textContent='Edit expense';$('formError').textContent='';
   renderForm();updatePreview();
   $('entryForm').scrollIntoView({block:'nearest',behavior:'smooth'});
@@ -941,10 +954,10 @@ function submitForm(ev){
   if(amount==null){err.textContent='Enter the amount you paid, like 120 or 59.50.';return;}
   var date=$('date').value;
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){err.textContent='Pick a date.';return;}
-  var shared=$('sharedChk').checked,share=shared?clampShare($('shareInput').value):100;
+  var shared=$('sharedChk').checked,people=shared?clampPeople($('peopleInput').value):1,share=people>1?round2(100/people):100;
   var old=state.editing;
   var paidBy=(shared&&$('paidBy').value==='roommate')?'roommate':'me';
-  var entry={id:old?old.id:newId(),t:old?old.t:Date.now(),date:date,item:itemId,name:name,group:group,amount:amount,share:share,paidBy:paidBy,note:$('note').value.trim().slice(0,80)};
+  var entry={id:old?old.id:newId(),t:old?old.t:Date.now(),date:date,item:itemId,name:name,group:group,amount:amount,share:share,people:people,paidBy:paidBy,note:$('note').value.trim().slice(0,80)};
   saveEntry(entry,old);
   var k=monthKey(date);
   toast((old?'Updated ':'Added ')+name+' '+rupee(mine(entry))+(k!==state.view?' in '+monthName(k):'')+'.');
@@ -964,17 +977,17 @@ function currentBalance(){
 }
 function renderBalance(){
   var all=allEntries().filter(function(e){return typeof e.amount==='number';}),sets=settlements();
-  var any=sets.length>0||all.some(function(e){return e.share!=null&&e.share<100;});
+  var any=sets.length>0||all.some(function(e){return peopleOf(e)>1;});
   $('balCard').hidden=!any;
   if(!any)return;
   var b=balanceOf(all,sets),n=$('balNum'),note=$('balNote');
-  if(b>0){n.textContent='Owes you '+rupee(b);n.className='balnum pos';note.textContent='Your roommate owes you this much for shared items.';}
-  else if(b<0){n.textContent='You owe '+rupee(-b);n.className='balnum neg';note.textContent='You owe your roommate this much for shared items.';}
+  if(b>0){n.textContent='Others owe you '+rupee(b);n.className='balnum pos';note.textContent='Others owe you this much for shared items.';}
+  else if(b<0){n.textContent='You owe others '+rupee(-b);n.className='balnum neg';note.textContent='You owe others this much for shared items.';}
   else{n.textContent='All settled';n.className='balnum';note.textContent='Shared items are even. Record a payment below when money changes hands.';}
   var ul=$('setList');ul.replaceChildren();
   sets.slice().sort(function(a,c){return a.date<c.date?1:(a.date>c.date?-1:0);}).slice(0,5).forEach(function(x){
     ul.append(h('li',null,
-      h('span',null,dayLabel(x.date)+' · '+(x.dir==='got'?'Roommate paid me ':'I paid roommate ')+rupee(x.amount)),
+      h('span',null,dayLabel(x.date)+' · '+(x.dir==='got'?'They paid me ':'I paid them ')+rupee(x.amount)),
       h('button',{type:'button',class:'link danger','aria-label':'Delete payment of '+rupee(x.amount)+' on '+dayLabel(x.date),onclick:function(){removeSettlement(x);}},'Delete')));
   });
 }
@@ -985,7 +998,7 @@ function addSettlement(dir){
   var x={id:newId(),date:todayISO(),amount:amt,dir:dir};
   store.set('settle',{items:settlements().concat([x])});
   $('setAmt').value='';
-  toast(dir==='got'?'Recorded '+rupee(amt)+' received from your roommate.':'Recorded '+rupee(amt)+' paid to your roommate.',function(){
+  toast(dir==='got'?'Recorded '+rupee(amt)+' received.':'Recorded '+rupee(amt)+' paid.',function(){
     store.set('settle',{items:settlements().filter(function(y){return y.id!==x.id;})});
   });
 }
@@ -1020,7 +1033,7 @@ function renderQuick(){
 function quickAdd(i){
   var amt=lastAmount(i.id);
   if(amt==null)return;
-  var entry={id:newId(),t:Date.now(),date:todayISO(),item:i.id,name:i.name,group:i.group,amount:amt,share:i.shared?i.share:100,paidBy:'me',note:''};
+  var entry={id:newId(),t:Date.now(),date:todayISO(),item:i.id,name:i.name,group:i.group,amount:amt,share:i.shared?round2(100/i.people):100,people:i.shared?i.people:1,paidBy:'me',note:''};
   state.view=monthKey(entry.date);
   saveEntry(entry,null);
   toast('Added '+i.name+' '+rupee(mine(entry))+' for today.',function(){dropEntry(entry);});
@@ -1057,7 +1070,7 @@ function applyRecurring(){
     var key=r.id+'@'+mk,day=Math.min(r.day,dim);
     if(done[key]||dn<day)return;
     done[key]=1;changed=true;
-    add.push({id:newId(),t:Date.now()+add.length,date:mk+'-'+pad2(day),item:'repeat',name:r.name,group:r.group,amount:r.amount,share:r.shared?r.share:100,paidBy:'me',note:'Monthly'});
+    add.push({id:newId(),t:Date.now()+add.length,date:mk+'-'+pad2(day),item:'repeat',name:r.name,group:r.group,amount:r.amount,share:r.shared?round2(100/r.people):100,people:r.shared?r.people:1,paidBy:'me',note:'Monthly'});
   });
   if(!changed)return;
   store.set('m-'+mk,{entries:entriesOf(mk).concat(add)});
@@ -1087,10 +1100,10 @@ function renderRepeats(){
   state.settings.recurring.forEach(function(r){box.append(repRow(r));});
 }
 function repRow(r){
-  var share=h('input',{type:'text',inputmode:'numeric',value:String(r.share),'aria-label':'My share percent for '+r.name});
-  share.disabled=!r.shared;
-  share.addEventListener('input',function(ev){r.share=clampShare(ev.target.value);touchSettings();});
-  var chk=h('input',{type:'checkbox','aria-label':'Shared with roommate: '+r.name,onchange:function(ev){r.shared=ev.target.checked;share.disabled=!r.shared;touchSettings();}});
+  var people=h('input',{type:'text',inputmode:'numeric',value:String(r.people),placeholder:'People','aria-label':'People sharing '+r.name});
+  people.disabled=!r.shared;
+  people.addEventListener('input',function(ev){r.people=clampPeople(ev.target.value);touchSettings();});
+  var chk=h('input',{type:'checkbox','aria-label':'Shared with others: '+r.name,onchange:function(ev){r.shared=ev.target.checked;people.disabled=!r.shared;touchSettings();}});
   chk.checked=r.shared;
   return h('div',{class:'itemrow'},
     h('input',{type:'text',class:'n',maxlength:'40',value:r.name,'aria-label':'Monthly item name',oninput:function(ev){r.name=ev.target.value;touchSettings();}}),
@@ -1102,7 +1115,7 @@ function repRow(r){
     h('span',{class:'sp'},h('input',{type:'text',inputmode:'numeric',placeholder:'Day 1-28',value:String(r.day),'aria-label':'Day of the month for '+r.name,
       oninput:function(ev){var n=parseInt(ev.target.value,10);if(isFinite(n)){r.day=Math.min(28,Math.max(1,n));touchSettings();}}})),
     h('label',{class:'check'},chk,'Shared'),
-    h('span',{class:'money suffix sp'},share,h('span',{'aria-hidden':'true',text:'%'})),
+    h('span',{class:'sp'},people),
     h('button',{type:'button',class:'link danger','aria-label':'Remove '+r.name,onclick:function(){
       state.settings.recurring=state.settings.recurring.filter(function(x){return x!==r;});
       touchSettings();renderRepeats();renderLimits();
@@ -1219,7 +1232,7 @@ function setTab(t){
 $('entryForm').addEventListener('submit',submitForm);
 $('cancelEdit').addEventListener('click',function(){resetForm();});
 $('amount').addEventListener('input',updatePreview);
-$('shareInput').addEventListener('input',updatePreview);
+$('peopleInput').addEventListener('input',updatePreview);
 $('sharedChk').addEventListener('change',function(){syncShareUI();updatePreview();});
 $('prevM').addEventListener('click',function(){state.view=shiftMonth(state.view,-1);renderAll();});
 $('nextM').addEventListener('click',function(){state.view=shiftMonth(state.view,1);renderAll();});
@@ -1242,7 +1255,7 @@ $('themeSel').addEventListener('change',function(ev){
   applyTheme(v);
 });
 $('addRep').addEventListener('click',function(){
-  state.settings.recurring.push({id:newId(),name:'Monthly item',group:'Other',amount:0,day:1,shared:false,share:50});
+  state.settings.recurring.push({id:newId(),name:'Monthly item',group:'Other',amount:0,day:1,shared:false,people:2});
   touchSettings();renderRepeats();renderLimits();
   var names=$('repRows').querySelectorAll('input.n');
   var last=names[names.length-1];
@@ -1259,7 +1272,7 @@ $('budgetInput').addEventListener('input',function(ev){
   if(isFinite(n)&&n>=0){state.settings.budget=n;touchSettings();}
 });
 $('addItem').addEventListener('click',function(){
-  state.settings.items.push({id:newId(),name:'New item',group:'Other',shared:false,share:50});
+  state.settings.items.push({id:newId(),name:'New item',group:'Other',shared:false,people:2});
   touchSettings();renderSettings();renderChips();
   var names=$('itemRows').querySelectorAll('input.n');
   var last=names[names.length-1];
