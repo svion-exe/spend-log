@@ -358,6 +358,7 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
           <button class="btn ghost sm" id="setGave" type="button">I paid them</button>
         </div>
         <p class="err" id="setErr" role="alert"></p>
+        <div class="actions"><button class="btn ghost sm" id="shareSumBtn" type="button">Share this month's summary</button></div>
         <ul class="setlist" id="setList"></ul>
       </section>
 
@@ -404,7 +405,8 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
           <div class="fold-body">
             <p class="hint" id="backupInfo" style="margin:0"></p>
             <div class="actions">
-              <button class="btn" id="exportBtn" type="button">Export backup</button>
+              <button class="btn" id="shareBackupBtn" type="button">Share backup</button>
+              <button class="btn ghost" id="exportBtn" type="button">Download backup</button>
               <button class="btn ghost" id="importBtn" type="button">Import backup</button>
               <input type="file" id="importFile" accept="application/json,.json" hidden>
             </div>
@@ -645,6 +647,18 @@ function streakInfo(entries,budget,todayStr){
   }
   return {current:run,best:best};
 }
+function buildShareSummary(key,entries,balance){
+  var L=[],shared=entries.filter(function(e){return peopleOf(e)>1;}).sort(sortEntries);
+  L.push('Shared expenses, '+monthName(key));
+  if(!shared.length)L.push('No shared items this month.');
+  shared.slice(0,40).forEach(function(e){
+    L.push(dayLabel(e.date)+' · '+e.name+' '+rupee(e.amount)+' (split '+peopleOf(e)+' ways, '+rupee(mine(e))+' each, paid by '+(e.paidBy==='roommate'?'someone else':'me')+')');
+  });
+  if(shared.length>40)L.push('... and '+(shared.length-40)+' more.');
+  L.push('');
+  L.push(balance>0?'Balance so far: please pay me '+rupee(balance)+'.':balance<0?'Balance so far: I owe '+rupee(-balance)+'.':'Balance so far: all settled.');
+  return L.join('\n');
+}
 /*PURE-END*/
 
 var DEFAULTS={
@@ -664,7 +678,7 @@ var DEFAULTS={
 
 var state={
   docs:{},settings:JSON.parse(JSON.stringify(DEFAULTS)),view:monthKey(todayISO()),
-  editing:null,sel:null,tab:'days',screen:'today',opener:null,ready:true,notice:null,dirty:false,q:'',gf:'',nudgeOff:{}
+  editing:null,sel:null,tab:'days',screen:'today',opener:null,ready:true,notice:null,dirty:false,q:'',gf:'',nudgeOff:{},dupKey:null
 };
 var saveTimer=null,toastTimer=null,chain=Promise.resolve();
 
@@ -778,13 +792,36 @@ function download(filename,mime,text){
   a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();
   setTimeout(function(){URL.revokeObjectURL(url);},4000);
 }
+function backupPayload(){return JSON.stringify({app:'daily-spend-log',version:1,exportedAt:new Date().toISOString(),docs:state.docs},null,2);}
+function markBackup(){var meta=readJSON(META,{});meta.lastBackup=todayISO();writeJSON(META,meta);updateBackupInfo();renderNotice();}
 function exportBackup(){
-  var payload={app:'daily-spend-log',version:1,exportedAt:new Date().toISOString(),docs:state.docs};
-  download('spend-log-backup-'+todayISO()+'.json','application/json',JSON.stringify(payload,null,2));
-  var meta=readJSON(META,{});meta.lastBackup=todayISO();writeJSON(META,meta);
-  updateBackupInfo();renderNotice();
+  download('spend-log-backup-'+todayISO()+'.json','application/json',backupPayload());
+  markBackup();
   toast('Backup file saved. Look in your Downloads.');
 }
+async function shareBackup(){
+  var name='spend-log-backup-'+todayISO()+'.json';
+  try{
+    var file=new File([backupPayload()],name,{type:'application/json'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:'Spend Log backup'});
+      markBackup();toast('Backup shared. Save it in Drive or send it to yourself.');
+      return;
+    }
+  }catch(e){
+    if(e&&e.name==='AbortError')return;
+  }
+  exportBackup();
+}
+function copyOrShare(txt,copiedMsg){
+  function copy(){
+    try{navigator.clipboard.writeText(txt).then(function(){toast(copiedMsg);},function(){toast('Could not copy.');});}
+    catch(e){toast('Could not copy.');}
+  }
+  if(navigator.share){navigator.share({text:txt}).catch(function(e){if(!e||e.name!=='AbortError')copy();});return;}
+  copy();
+}
+function shareSummary(){copyOrShare(buildShareSummary(state.view,entriesOf(state.view),currentBalance()),'Summary copied. Paste it into a message.');}
 function applyDocs(d){
   state.docs=d;state.settings=normSettings(d.settings);state.dirty=false;
   writeJSON(KEY,d);
@@ -1095,6 +1132,12 @@ function submitForm(ev){
   var old=state.editing;
   var paidBy=(shared&&$('paidBy').value==='roommate')?'roommate':'me';
   var entry={id:old?old.id:newId(),t:old?old.t:Date.now(),date:date,item:itemId,name:name,group:group,amount:amount,share:share,people:people,paidBy:paidBy,note:$('note').value.trim().slice(0,80)};
+  if(!old){
+    var key=[itemId,name,amount,date].join('|'),cut=Date.now()-120000;
+    var dup=entriesOf(monthKey(date)).some(function(e){return e.date===date&&e.item===itemId&&e.name===name&&e.amount===amount&&typeof e.t==='number'&&e.t>=cut;});
+    if(dup&&state.dupKey!==key){state.dupKey=key;err.textContent='You just added the same entry. Tap Add expense again if it really is a second one.';return;}
+    state.dupKey=null;
+  }
   saveEntry(entry,old);
   var k=monthKey(date);
   toast((old?'Updated ':'Added ')+name+' '+rupee(mine(entry))+(k!==state.view?' in '+monthName(k):'')+'.');
@@ -1550,6 +1593,8 @@ $('dlBtn').addEventListener('click',function(){
   toast('Saved the log for '+monthName(state.view)+'. Look in your Downloads.');
 });
 $('exportBtn').addEventListener('click',exportBackup);
+$('shareBackupBtn').addEventListener('click',shareBackup);
+$('shareSumBtn').addEventListener('click',shareSummary);
 $('importBtn').addEventListener('click',function(){$('importFile').click();});
 $('importFile').addEventListener('change',function(ev){
   var f=ev.target.files&&ev.target.files[0];

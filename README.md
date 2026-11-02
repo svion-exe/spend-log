@@ -16,6 +16,8 @@ It works with no internet after the first open. Your entries are stored on your 
 - **Home-screen shortcuts:** long-press the installed icon for Add lunch, Add dinner, Add expense. You may need to remove the icon and install again once for these to appear.
 - **Monthly repeats**, **backup**, **theme** and the item list are in collapsible sections under More. Spending per group is shown under "Where it went".
 - **Shared items by number of people:** your part is the bill divided by that number. The balance with others is tracked under More.
+- **Duplicate guard:** adding the same entry twice within two minutes asks you to confirm.
+- **Share summary:** under More, send your roommate a text of this month's shared items and who owes whom.
 - **Insights:** spending by day, comparison with last month, biggest items.
 - **Search and group filter**, plus **plain text and CSV downloads** in the Log tab.
 
@@ -49,7 +51,7 @@ Open it from the new icon from then on. Always use the same address, because you
 ## Keep your data safe
 
 - Your entries exist only on this phone. Clearing the browser's site data, uninstalling, or losing the phone deletes them.
-- In the app, open **Settings**, then **Backup**, then **Export backup**. Send the file to your email or Drive. Once a week is enough; the app reminds you.
+- In the app, open **More**, then **Backup**, then **Share backup**. Send the file to Drive, email, or WhatsApp to yourself. **Download backup** saves it to your phone instead.
 - To restore on the same or a new phone, open **Settings**, then **Import backup**, and pick the file.
 - Use **Plain text**, then **Download .txt** for a readable monthly record.
 
