@@ -7,16 +7,17 @@ It works with no internet after the first open. Your entries are stored on your 
 
 - **Four tabs** at the bottom: Today, Log, Insights, More. A floating **+** button opens the Add expense form as a sheet.
 - **Today:** budget meter, streak, quick add, and today's entries. "Where it went" is folded away until you tap it.
-- **Quick add** with smart suggestions: items you usually buy around this time of day come first. One tap logs at the last price, with Undo.
+- **Quick add** with smart suggestions: items you usually buy around this time of day come first. Tap one and the amount field opens with the number pad. Amounts are never prefilled, since food court prices change.
+- **Opens straight to the form** at your usual lunch or dinner time.
+- **Catch-ups:** a banner if lunch (after 3:30 pm) or dinner (after 10:30 pm) is not logged today, and if yesterday's lunch or dinner was missed. Each has Add and Skip.
 - **Repeat yesterday:** adds yesterday's entries to today in one tap, with Undo.
 - **Under-budget streak:** counts days you logged and stayed within your budget spread evenly over the month.
 - **Compact log:** tap an entry to edit, swipe left to delete. Only the last 7 days are open; older days are folded.
 - **Home-screen shortcuts:** long-press the installed icon for Add lunch, Add dinner, Add expense. You may need to remove the icon and install again once for these to appear.
-- **Limits per group**, **monthly repeats**, **backup**, **theme** and the item list are in collapsible sections under More.
+- **Monthly repeats**, **backup**, **theme** and the item list are in collapsible sections under More. Spending per group is shown under "Where it went".
 - **Shared items by number of people:** your part is the bill divided by that number. The balance with others is tracked under More.
 - **Insights:** spending by day, comparison with last month, biggest items.
 - **Search and group filter**, plus **plain text and CSV downloads** in the Log tab.
-- **Meal nudge** if lunch (after 2 pm) or dinner (after 9 pm) is not logged.
 
 ## What is in this folder
 
