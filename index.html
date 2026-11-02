@@ -209,75 +209,70 @@ svg.chart .allow{stroke:var(--fg);stroke-width:1;stroke-dasharray:3 3}
 }
 .toast .link{color:var(--bg);font-weight:700}
 @media (prefers-reduced-motion:no-preference){.meter .fill,.gbar i{transition:width .4s ease}}
+/* v4 layout: screens, bottom tabs, add sheet, compact rows, folds */
+:root{--navh:60px}
+h1{font-size:20px}
+.app{max-width:640px}
+body{padding-bottom:calc(var(--navh) + 96px + env(safe-area-inset-bottom,0px))}
+body.noscroll{overflow:hidden}
+.screen{display:grid;gap:16px;align-content:start}
+.top{align-items:center}
+.logbar{margin-bottom:0}
+.filters{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:10px;margin-bottom:0}
+.qlabel{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 6px}
+.quick #quickLikely,.quick #quickRegs{display:block}
+.balink{text-align:left;padding:2px 0;justify-self:start}
+details.fold{border-top:1px solid var(--line)}
+details.fold>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:44px;font-weight:600;font-size:15px}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:"";flex:none;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin-right:4px}
+details.fold[open]>summary::after{transform:rotate(-135deg)}
+.fold-body{display:grid;gap:14px;padding-bottom:14px}
+details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
+.dayrows{display:grid}
+.swipe{position:relative;overflow:hidden;border-top:1px solid var(--line)}
+.dayrows .swipe:first-child,#todayList .swipe:first-child{border-top:0}
+.swipebg{position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-end;padding-right:16px;background:var(--bad-soft);color:var(--bad);font-weight:700;font-size:14px}
+.row{position:relative;width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;background:var(--surface);color:var(--fg);border:0;border-radius:0;padding:8px 2px;min-height:48px;font:inherit;cursor:pointer;touch-action:pan-y}
+.row .what{display:grid;min-width:0}
+.row .name{font-weight:500;overflow-wrap:anywhere}
+.row .meta{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+@media (prefers-reduced-motion:no-preference){.row{transition:transform .15s ease}}
+.day{margin-top:12px;padding-top:8px}
+#todayList .hint{margin:4px 0 0}
+.dayhead h2{margin:0}
+
+.bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.bottomnav button{font:inherit;font-size:12px;font-weight:600;color:var(--muted);background:none;border:0;min-height:var(--navh);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer}
+.bottomnav button[aria-current="page"]{color:var(--accent)}
+.bottomnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.fab{position:fixed;z-index:31;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(var(--navh) + 16px + env(safe-area-inset-bottom,0px));width:56px;height:56px;border-radius:16px;border:0;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.28)}
+.sheetwrap{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+.sheet{position:relative;width:100%;max-width:560px;max-height:92%;overflow-y:auto;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:16px 16px 0 0;display:grid;gap:14px;align-content:start;padding-top:16px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet form{display:grid;gap:14px}
+.sheethead{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.toastwrap{z-index:60;padding-bottom:calc(var(--navh) + 12px + env(safe-area-inset-bottom,0px))}
 </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <div>
-      <h1>Daily Spend Log</h1>
-      <p class="sub muted">What you spend each day, in rupees. Your savings stay out of this page.</p>
-    </div>
-    <div class="monthnav">
+    <h1>Daily Spend Log</h1>
+    <div class="monthnav" id="monthnav" hidden>
       <button class="icon" id="prevM" type="button" aria-label="Previous month">&lsaquo;</button>
       <div class="mlabel" id="monthLabel" aria-live="polite"></div>
       <button class="icon" id="nextM" type="button" aria-label="Next month">&rsaquo;</button>
       <button class="link" id="thisMonth" type="button" hidden>This month</button>
-      <button class="btn ghost sm" id="settingsBtn" type="button" aria-expanded="false" aria-controls="settings">Settings</button>
     </div>
   </header>
 
-  <div class="notice" id="notice" role="status" hidden></div>
-  <div class="nudge" id="nudge" role="status" hidden></div>
+  <main>
+    <section class="screen" id="screenToday" aria-label="Today">
+      <div class="notice" id="notice" role="status" hidden></div>
+      <div class="nudge" id="nudge" role="status" hidden></div>
 
-  <section class="card" id="settings" aria-labelledby="setH" hidden>
-    <div class="stack">
-      <h2 id="setH">Settings</h2>
-      <div class="field">
-        <label for="budgetInput">Monthly spending budget</label>
-        <div class="money"><span aria-hidden="true">&#8377;</span><input id="budgetInput" type="text" inputmode="numeric" autocomplete="off"></div>
-        <p class="hint">Take-home pay minus what you save. The starting value is 10,500, which is 15,000 pay minus a 4,500 savings goal. Change it when your pay changes.</p>
-      </div>
-      <div>
-        <h3>Items you buy</h3>
-        <p class="hint">These become the quick buttons on the add form. Mark an item shared if you split it with others, and set how many people share it, counting yourself. Your part of the bill is what counts as your spending.</p>
-        <div id="itemRows"></div>
-        <datalist id="groupList"></datalist>
-      </div>
-      <div class="actions">
-        <button class="btn ghost" id="addItem" type="button">Add item</button>
-      </div>
-      <div>
-        <h3>Limits per group</h3>
-        <p class="hint">Optional. Set a monthly limit for a group. Its bar turns amber at 80% and red when you pass the limit.</p>
-        <div id="limitRows"></div>
-      </div>
-      <div>
-        <h3>Repeats every month</h3>
-        <p class="hint">For things that come every month, like a subscription or a regular grocery top-up. They are added to your log the next time you open the app on or after the day you choose.</p>
-        <div id="repRows"></div>
-        <div class="actions" style="margin-top:8px"><button class="btn ghost" id="addRep" type="button">Add monthly item</button></div>
-      </div>
-      <div class="themebox">
-        <label for="themeSel">Appearance</label>
-        <select id="themeSel"><option value="auto">Match my phone</option><option value="light">Light</option><option value="dark">Dark</option></select>
-      </div>
-      <p class="hint">Changes save on their own.</p>
-      <div class="backup">
-        <h3>Backup</h3>
-        <p class="hint" id="backupInfo" style="margin:0"></p>
-        <div class="actions">
-          <button class="btn" id="exportBtn" type="button">Export backup</button>
-          <button class="btn ghost" id="importBtn" type="button">Import backup</button>
-          <input type="file" id="importFile" accept="application/json,.json" hidden>
-        </div>
-        <p class="hint" style="margin:0">Your entries live only on this phone. Export a backup file every week and keep it in your email or Drive. Importing a backup replaces what is on this phone, and you get a few seconds to undo it.</p>
-      </div>
-    </div>
-  </section>
-
-  <main class="grid">
-    <div class="col">
       <section class="card summary" aria-labelledby="sumH">
         <h2 id="sumH" class="eyebrow">Your spending this month</h2>
         <div class="bigrow">
@@ -286,62 +281,69 @@ svg.chart .allow{stroke:var(--fg);stroke-width:1;stroke-dasharray:3 3}
         </div>
         <div class="meter" id="meter" role="img" aria-label="Budget used"><div class="fill" id="fill"></div><div class="tick" id="tick" hidden></div></div>
         <div class="statusrow"><span class="pill" id="statusPill"></span><span class="small muted" id="perDay"></span></div>
-        <p class="small muted" id="legend"></p>
-        <ul class="groups" id="groups"></ul>
-        <p class="small muted" id="avgLine"></p>
-        <p class="small muted" id="roommateLine"></p>
+        <p class="small" id="streakLine" hidden></p>
+        <button class="link balink" id="balLink" type="button" hidden></button>
+        <details class="fold">
+          <summary>Where it went</summary>
+          <div class="fold-body">
+            <ul class="groups" id="groups"></ul>
+            <p class="small muted" id="avgLine"></p>
+            <p class="small muted" id="roommateLine"></p>
+            <p class="small muted" id="legend"></p>
+            <p class="small muted" id="streakNote"></p>
+          </div>
+        </details>
       </section>
 
       <section class="card quick" id="quickCard" aria-labelledby="quickH" hidden>
-        <h2 id="quickH" class="eyebrow">Quick add for today</h2>
-        <div class="chips" id="quickChips"></div>
-        <p class="hint" style="margin:0">One tap logs the item at its last price. You can undo right after.</p>
+        <h2 id="quickH" class="eyebrow">Quick add</h2>
+        <div id="quickLikely" hidden>
+          <p class="qlabel">Likely now</p>
+          <div class="chips" id="quickLikelyChips"></div>
+        </div>
+        <div id="quickRegs" hidden>
+          <p class="qlabel">Regulars</p>
+          <div class="chips" id="quickChips"></div>
+        </div>
+        <button class="btn ghost sm" id="repYBtn" type="button" hidden></button>
+        <p class="hint" style="margin:0">One tap logs an item at its last price. You can undo right after.</p>
       </section>
 
-      <form class="card" id="entryForm" novalidate>
-        <h2 id="formTitle">Add an expense</h2>
-        <fieldset class="field">
-          <legend>What did you buy?</legend>
-          <div class="chips" id="chips"></div>
-        </fieldset>
-        <div class="field" id="otherWrap" hidden>
-          <label for="otherName">Item name</label>
-          <input id="otherName" type="text" maxlength="40" autocomplete="off" placeholder="e.g. Auto fare">
-        </div>
-        <div class="two">
-          <div class="field">
-            <label for="amount">Amount paid</label>
-            <div class="money"><span aria-hidden="true">&#8377;</span><input id="amount" type="text" inputmode="decimal" autocomplete="off" placeholder="0"></div>
-          </div>
-          <div class="field">
-            <label for="date">Date</label>
-            <input id="date" type="date">
-          </div>
-        </div>
-        <div class="sharebox">
-          <div class="sharerow">
-            <label class="check" for="sharedChk"><input type="checkbox" id="sharedChk"> Shared with others</label>
-            <label class="sharepct" for="peopleInput">People sharing
-              <input id="peopleInput" type="text" inputmode="numeric" value="2" autocomplete="off">
-            </label>
-          </div>
-          <div class="field" id="paidByWrap" hidden>
-            <label for="paidBy">Who paid at the shop?</label>
-            <select id="paidBy"><option value="me">I paid</option><option value="roommate">Someone else paid</option></select>
-          </div>
-          <p class="hint" id="preview" aria-live="polite" style="margin:0"></p>
-        </div>
-        <div class="field">
-          <label for="note">Note (optional)</label>
-          <input id="note" type="text" maxlength="80" autocomplete="off" placeholder="e.g. 3 packs">
-        </div>
-        <p class="err" id="formError" role="alert"></p>
-        <div class="actions">
-          <button class="btn" id="submitBtn" type="submit">Add expense</button>
-          <button class="btn ghost" id="cancelEdit" type="button" hidden>Cancel</button>
-        </div>
-      </form>
+      <section class="card" aria-labelledby="todayH">
+        <div class="dayhead"><h2 id="todayH" class="eyebrow">Today</h2><span class="amt" id="todayTotal"></span></div>
+        <div id="todayList"></div>
+      </section>
+    </section>
 
+    <section class="screen" id="screenLog" aria-label="Log" hidden>
+      <div class="logbar">
+        <div class="tabs" role="tablist" aria-label="Log view">
+          <button type="button" role="tab" id="tabDays" aria-selected="true" aria-controls="dayList">By day</button>
+          <button type="button" role="tab" id="tabText" aria-selected="false" aria-controls="textView">Plain text</button>
+        </div>
+        <span class="amt muted" id="logTotal"></span>
+      </div>
+      <div class="filters" id="filters" hidden>
+        <input id="q" type="text" autocomplete="off" placeholder="Search" aria-label="Search entries">
+        <select id="gf" aria-label="Filter by group"><option value="">All groups</option></select>
+      </div>
+      <p class="hint" id="logHint" hidden>Tap an entry to edit it. Swipe left to delete.</p>
+      <div id="dayList" role="tabpanel" aria-labelledby="tabDays"></div>
+      <div id="textView" role="tabpanel" aria-labelledby="tabText" hidden>
+        <div class="exports">
+          <button class="btn ghost sm" id="copyBtn" type="button">Copy text</button>
+          <button class="btn ghost sm" id="dlBtn" type="button">Download .txt</button>
+          <button class="btn ghost sm" id="csvBtn" type="button">Download .csv</button>
+        </div>
+        <pre class="paper" id="textOut" tabindex="0"></pre>
+      </div>
+    </section>
+
+    <section class="screen" id="screenInsights" aria-label="Insights" hidden>
+      <div id="insightView"></div>
+    </section>
+
+    <section class="screen" id="screenMore" aria-label="More" hidden>
       <section class="card balance" id="balCard" aria-labelledby="balH" hidden>
         <h2 id="balH" class="eyebrow">Balance with others</h2>
         <div class="balnum" id="balNum"></div>
@@ -357,33 +359,133 @@ svg.chart .allow{stroke:var(--fg);stroke-width:1;stroke-dasharray:3 3}
         <p class="err" id="setErr" role="alert"></p>
         <ul class="setlist" id="setList"></ul>
       </section>
-    </div>
 
-    <section class="col" aria-label="Spending log">
-      <div class="logbar">
-        <div class="tabs" role="tablist" aria-label="Log view">
-          <button type="button" role="tab" id="tabDays" aria-selected="true" aria-controls="dayList">By day</button>
-          <button type="button" role="tab" id="tabInsights" aria-selected="false" aria-controls="insightView">Insights</button>
-          <button type="button" role="tab" id="tabText" aria-selected="false" aria-controls="textView">Plain text</button>
-        </div>
-      </div>
-      <div class="filters" id="filters" hidden>
-        <div class="field"><label for="q">Search</label><input id="q" type="text" autocomplete="off" placeholder="Item or note"></div>
-        <div class="field"><label for="gf">Group</label><select id="gf"><option value="">All groups</option></select></div>
-      </div>
-      <div id="dayList" role="tabpanel" aria-labelledby="tabDays"></div>
-      <div id="insightView" role="tabpanel" aria-labelledby="tabInsights" hidden></div>
-      <div id="textView" role="tabpanel" aria-labelledby="tabText" hidden>
-        <div class="exports">
-          <button class="btn ghost sm" id="copyBtn" type="button">Copy text</button>
-          <button class="btn ghost sm" id="dlBtn" type="button">Download .txt</button>
-          <button class="btn ghost sm" id="csvBtn" type="button">Download .csv</button>
-        </div>
-        <pre class="paper" id="textOut" tabindex="0"></pre>
-      </div>
+      <section class="card" aria-labelledby="setH">
+        <h2 id="setH">Settings</h2>
+        <details class="fold" open>
+          <summary>Monthly budget</summary>
+          <div class="fold-body">
+            <div class="field">
+              <label for="budgetInput">Monthly spending budget</label>
+              <div class="money"><span aria-hidden="true">&#8377;</span><input id="budgetInput" type="text" inputmode="numeric" autocomplete="off"></div>
+              <p class="hint">Take-home pay minus what you save. Change it when your pay changes.</p>
+            </div>
+          </div>
+        </details>
+        <details class="fold">
+          <summary>Items you buy</summary>
+          <div class="fold-body">
+            <p class="hint">These become the quick buttons on the add form. Mark an item shared if you split it with others, and set how many people share it, counting yourself. Your part of the bill is what counts as your spending.</p>
+            <div id="itemRows"></div>
+            <datalist id="groupList"></datalist>
+            <div class="actions"><button class="btn ghost" id="addItem" type="button">Add item</button></div>
+          </div>
+        </details>
+        <details class="fold">
+          <summary>Limits per group</summary>
+          <div class="fold-body">
+            <p class="hint">Optional. Set a monthly limit for a group. Its bar turns amber at 80% and red when you pass the limit.</p>
+            <div id="limitRows"></div>
+          </div>
+        </details>
+        <details class="fold">
+          <summary>Repeats every month</summary>
+          <div class="fold-body">
+            <p class="hint">For things that come every month, like a subscription or a regular grocery top-up. They are added to your log the next time you open the app on or after the day you choose.</p>
+            <div id="repRows"></div>
+            <div class="actions"><button class="btn ghost" id="addRep" type="button">Add monthly item</button></div>
+          </div>
+        </details>
+        <details class="fold">
+          <summary>Appearance</summary>
+          <div class="fold-body">
+            <div class="themebox">
+              <label for="themeSel">Theme</label>
+              <select id="themeSel"><option value="auto">Match my phone</option><option value="light">Light</option><option value="dark">Dark</option></select>
+            </div>
+          </div>
+        </details>
+        <details class="fold">
+          <summary>Backup</summary>
+          <div class="fold-body">
+            <p class="hint" id="backupInfo" style="margin:0"></p>
+            <div class="actions">
+              <button class="btn" id="exportBtn" type="button">Export backup</button>
+              <button class="btn ghost" id="importBtn" type="button">Import backup</button>
+              <input type="file" id="importFile" accept="application/json,.json" hidden>
+            </div>
+            <p class="hint" style="margin:0">Your entries live only on this phone. Export a backup file every week and keep it in your email or Drive. Importing a backup replaces what is on this phone, and you get a few seconds to undo it.</p>
+          </div>
+        </details>
+        <p class="hint">Changes save on their own.</p>
+      </section>
     </section>
   </main>
 </div>
+
+<button class="fab" id="fab" type="button" aria-label="Add expense">
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+</button>
+
+<div class="sheetwrap" id="sheet" hidden>
+  <div class="backdrop" id="sheetBackdrop"></div>
+  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+    <div class="sheethead">
+      <h2 id="formTitle">Add an expense</h2>
+      <button class="icon" id="sheetClose" type="button" aria-label="Close">&times;</button>
+    </div>
+    <form id="entryForm" novalidate>
+      <fieldset class="field">
+        <legend>What did you buy?</legend>
+        <div class="chips" id="chips"></div>
+      </fieldset>
+      <div class="field" id="otherWrap" hidden>
+        <label for="otherName">Item name</label>
+        <input id="otherName" type="text" maxlength="40" autocomplete="off" placeholder="e.g. Auto fare">
+      </div>
+      <div class="two">
+        <div class="field">
+          <label for="amount">Amount paid</label>
+          <div class="money"><span aria-hidden="true">&#8377;</span><input id="amount" type="text" inputmode="decimal" autocomplete="off" placeholder="0"></div>
+        </div>
+        <div class="field">
+          <label for="date">Date</label>
+          <input id="date" type="date">
+        </div>
+      </div>
+      <div class="sharebox">
+        <div class="sharerow">
+          <label class="check" for="sharedChk"><input type="checkbox" id="sharedChk"> Shared with others</label>
+          <label class="sharepct" for="peopleInput">People sharing
+            <input id="peopleInput" type="text" inputmode="numeric" value="2" autocomplete="off">
+          </label>
+        </div>
+        <div class="field" id="paidByWrap" hidden>
+          <label for="paidBy">Who paid at the shop?</label>
+          <select id="paidBy"><option value="me">I paid</option><option value="roommate">Someone else paid</option></select>
+        </div>
+        <p class="hint" id="preview" aria-live="polite" style="margin:0"></p>
+      </div>
+      <div class="field">
+        <label for="note">Note (optional)</label>
+        <input id="note" type="text" maxlength="80" autocomplete="off" placeholder="e.g. 3 packs">
+      </div>
+      <p class="err" id="formError" role="alert"></p>
+      <div class="actions">
+        <button class="btn" id="submitBtn" type="submit">Add expense</button>
+        <button class="btn ghost" id="cancelEdit" type="button">Cancel</button>
+        <button class="btn ghost danger" id="deleteEntry" type="button" hidden>Delete</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<nav class="bottomnav" aria-label="Main">
+  <button type="button" id="navToday" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Today</button>
+  <button type="button" id="navLog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Log</button>
+  <button type="button" id="navInsights"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Insights</button>
+  <button type="button" id="navMore"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>More</button>
+</nav>
 
 <div class="toastwrap"><div class="toast" id="toast" role="status" hidden></div></div>
 
@@ -531,6 +633,24 @@ function limitState(spent,limit){
   var r=spent/limit;
   return r>1?'bad':(r>=0.8?'warn':'good');
 }
+function median(a){var b=a.slice().sort(function(x,y){return x-y;}),n=b.length;return n%2?b[(n-1)/2]:(b[n/2-1]+b[n/2])/2;}
+function streakInfo(entries,budget,todayStr){
+  if(!(budget>0)||!entries.length)return null;
+  var by={},first=null;
+  entries.forEach(function(e){by[e.date]=round2((by[e.date]||0)+mine(e));if(first===null||e.date<first)first=e.date;});
+  var p=first.split('-').map(Number),q=todayStr.split('-').map(Number);
+  var d=new Date(p[0],p[1]-1,p[2]),last=new Date(q[0],q[1]-1,q[2]);
+  var run=0,best=0,guard=0;
+  while(d<=last&&guard<4000){
+    var iso=isoOf(d),has=Object.prototype.hasOwnProperty.call(by,iso);
+    if(!(iso===todayStr&&!has)){
+      var ok=has&&by[iso]<=budget/daysIn(iso.slice(0,7))+0.005;
+      if(ok){run++;if(run>best)best=run;}else run=0;
+    }
+    d.setDate(d.getDate()+1);guard++;
+  }
+  return {current:run,best:best};
+}
 /*PURE-END*/
 
 var DEFAULTS={
@@ -550,7 +670,7 @@ var DEFAULTS={
 
 var state={
   docs:{},settings:JSON.parse(JSON.stringify(DEFAULTS)),view:monthKey(todayISO()),
-  editing:null,sel:null,tab:'days',ready:true,notice:null,dirty:false,q:'',gf:'',nudgeOff:{}
+  editing:null,sel:null,tab:'days',screen:'today',opener:null,ready:true,notice:null,dirty:false,q:'',gf:'',nudgeOff:{}
 };
 var saveTimer=null,toastTimer=null,chain=Promise.resolve();
 
@@ -701,7 +821,8 @@ function renderNotice(){
 function renderTop(){
   $('monthLabel').textContent=monthName(state.view);
   $('thisMonth').hidden=state.view===monthKey(todayISO());
-  $('settingsBtn').disabled=!state.ready;
+  $('monthnav').hidden=!(state.screen==='log'||state.screen==='insights');
+  $('logTotal').textContent='Spent '+rupee(monthStats(entriesOf(state.view)).total);
 }
 function renderSummary(){
   var key=state.view,entries=entriesOf(key),st=monthStats(entries),budget=state.settings.budget;
@@ -731,18 +852,52 @@ function renderSummary(){
   $('avgLine').textContent=st.days>0?'Average '+rupee(round2(st.total/st.days))+' on the '+st.days+(st.days===1?' day':' days')+' you logged.':'';
   $('roommateLine').textContent=st.roommate>0?"Others' share on shared items: "+rupee(st.roommate)+'. It is not counted above.':'';
 }
+var swipedAt=0;
+function attachSwipe(btn,e){
+  var sx=0,sy=0,dx=0,dragging=false,decided=false;
+  btn.addEventListener('pointerdown',function(ev){
+    if(ev.pointerType==='mouse'&&ev.button!==0)return;
+    sx=ev.clientX;sy=ev.clientY;dx=0;dragging=true;decided=false;
+  });
+  btn.addEventListener('pointermove',function(ev){
+    if(!dragging)return;
+    var mx=ev.clientX-sx,my=ev.clientY-sy;
+    if(!decided){
+      if(Math.abs(mx)<8&&Math.abs(my)<8)return;
+      decided=true;
+      if(Math.abs(my)>Math.abs(mx)){dragging=false;return;}
+      try{btn.setPointerCapture(ev.pointerId);}catch(err){}
+    }
+    dx=Math.min(0,mx);
+    btn.style.transform='translateX('+dx+'px)';
+  });
+  function end(){
+    if(!dragging&&dx===0)return;
+    var moved=dx!==0;
+    dragging=false;
+    if(moved)swipedAt=Date.now();
+    if(dx<-90){btn.style.transform='translateX(-100%)';dx=0;removeEntry(e);return;}
+    btn.style.transform='';
+    dx=0;
+  }
+  btn.addEventListener('pointerup',end);
+  btn.addEventListener('pointercancel',end);
+}
 function rowEl(e){
   var m=mine(e),shared=m!==e.amount;
   var meta=[e.note,shared?'Paid '+rupee(e.amount)+(e.paidBy==='roommate'?' by someone else':'')+', split between '+peopleOf(e)+' people':''].filter(Boolean).join(' · ');
-  var when=dayLabel(e.date);
-  return h('div',{class:'row'},
-    h('div',{class:'what'},h('div',{class:'name',text:e.name}),meta?h('div',{class:'meta',text:meta}):null),
-    h('div',{class:'amt',text:rupee(m)}),
-    h('div',{class:'acts'},
-      h('button',{type:'button',class:'link','aria-label':'Edit '+e.name+' on '+when,onclick:function(){startEdit(e);}},'Edit'),
-      h('button',{type:'button',class:'link danger','aria-label':'Delete '+e.name+' on '+when,onclick:function(){removeEntry(e);}},'Delete')
-    )
-  );
+  var btn=h('button',{type:'button',class:'row','aria-label':'Edit '+e.name+', '+rupee(m)+', '+dayLabel(e.date),
+    onclick:function(){if(Date.now()-swipedAt<450)return;startEdit(e);}},
+    h('span',{class:'what'},h('span',{class:'name',text:e.name}),meta?h('span',{class:'meta',text:meta}):null),
+    h('span',{class:'amt',text:rupee(m)}));
+  attachSwipe(btn,e);
+  return h('div',{class:'swipe'},h('span',{class:'swipebg','aria-hidden':'true',text:'Delete'}),btn);
+}
+function dayEl(date,list,today){
+  var total=round2(list.reduce(function(t,e){return t+mine(e);},0));
+  return h('section',{class:'day'},
+    h('div',{class:'dayhead'},h('span',null,dayLabel(date),date===today?h('span',{class:'today',text:'Today'}):null),h('span',{class:'amt',text:rupee(total)})),
+    h('div',{class:'dayrows'},list.map(rowEl)));
 }
 function passes(e){
   if(state.gf&&(e.group||'Other')!==state.gf)return false;
@@ -760,7 +915,9 @@ function syncFilters(all){
   }
   if(state.gf&&names.indexOf(state.gf)<0)state.gf='';
   sel.value=state.gf;
-  $('filters').hidden=state.tab!=='days'||!all.length;
+  var on=state.tab==='days'&&all.length>0;
+  $('filters').hidden=!on;
+  $('logHint').hidden=!on;
 }
 function renderLog(){
   var box=$('dayList'),all=entriesOf(state.view);
@@ -770,7 +927,7 @@ function renderLog(){
   if(!all.length){
     box.append(h('div',{class:'empty'},
       h('p',{class:'empty-title',text:'Nothing logged for '+monthName(state.view)+' yet.'}),
-      h('p',{text:'Choose an item, enter what you paid, and it shows up here by day.'})));
+      h('p',{text:'Tap the + button to add your first expense.'})));
     return;
   }
   if(!entries.length){
@@ -779,17 +936,18 @@ function renderLog(){
       h('p',{text:'Clear the search or choose All groups.'})));
     return;
   }
-  if(state.q||state.gf)box.append(h('p',{class:'hint',text:'Showing '+entries.length+' of '+all.length+' entries.'}));
-  var sorted=entries.slice().sort(sortEntries),order=[],by={};
-  sorted.forEach(function(e){if(!by[e.date]){by[e.date]=[];order.push(e.date);}by[e.date].push(e);});
-  var today=todayISO();
-  order.reverse().forEach(function(date){
-    var list=by[date],total=round2(list.reduce(function(t,e){return t+mine(e);},0));
-    box.append(h('section',{class:'day'},
-      h('div',{class:'dayhead'},h('span',null,dayLabel(date),date===today?h('span',{class:'today',text:'Today'}):null),h('span',{class:'amt',text:rupee(total)})),
-      list.map(rowEl)
-    ));
-  });
+  var filtering=!!(state.q||state.gf);
+  if(filtering)box.append(h('p',{class:'hint',text:'Showing '+entries.length+' of '+all.length+' entries.'}));
+  var order=[],by={};
+  entries.slice().sort(sortEntries).forEach(function(e){if(!by[e.date]){by[e.date]=[];order.push(e.date);}by[e.date].push(e);});
+  var days=order.slice().reverse(),today=todayISO();
+  var shown=filtering?days:days.slice(0,7),rest=filtering?[]:days.slice(7);
+  shown.forEach(function(d){box.append(dayEl(d,by[d],today));});
+  if(rest.length){
+    var body=h('div',{class:'fold-body'});
+    rest.forEach(function(d){body.append(dayEl(d,by[d],today));});
+    box.append(h('details',{class:'fold earlier'},h('summary',null,'Show '+rest.length+' earlier '+(rest.length===1?'day':'days')),body));
+  }
 }
 function renderText(){
   $('textOut').textContent=buildText(state.view,entriesOf(state.view),state.settings.budget,currentBalance());
@@ -805,8 +963,7 @@ function renderChips(){
 function renderForm(){
   var b=$('submitBtn');
   b.disabled=!state.ready;
-  b.textContent=!state.ready?'Connecting…':(state.editing?'Save changes':'Add expense');
-  $('cancelEdit').hidden=!state.editing;
+  b.textContent=state.editing?'Save changes':'Add expense';
 }
 function renderSettings(){
   $('budgetInput').value=String(state.settings.budget);
@@ -844,11 +1001,11 @@ function itemRow(it){
   );
 }
 function renderAll(){
-  renderNotice();renderNudge();renderTop();renderSummary();renderBalance();renderQuick();renderLog();renderChips();renderForm();
-  if(state.tab==='insights')renderInsights();
+  renderNotice();renderNudge();renderTop();renderSummary();renderStreak();renderBalance();renderQuick();renderToday();
+  renderLog();renderChips();renderForm();
+  if(state.screen==='insights')renderInsights();
   if(state.tab==='text')renderText();
-  var st=$('settings');
-  if(!st.hidden&&!st.contains(document.activeElement))renderSettings();
+  if(state.screen==='more'&&!$('screenMore').contains(document.activeElement))renderSettings();
 }
 
 /* settings persistence */
@@ -918,7 +1075,7 @@ function resetForm(){
   state.editing=null;state.sel=null;
   $('otherWrap').hidden=true;$('otherName').value='';$('amount').value='';$('note').value='';
   $('sharedChk').checked=false;$('peopleInput').value='2';$('paidBy').value='me';syncShareUI();
-  $('formError').textContent='';$('formTitle').textContent='Add an expense';
+  $('formError').textContent='';$('formTitle').textContent='Add an expense';$('deleteEntry').hidden=true;
   renderChips();renderForm();updatePreview();
 }
 function startEdit(e){
@@ -930,10 +1087,9 @@ function startEdit(e){
   $('amount').value=String(e.amount);$('date').value=e.date;$('note').value=e.note||'';
   var shared=peopleOf(e)>1;
   $('sharedChk').checked=shared;$('peopleInput').value=String(shared?peopleOf(e):2);$('paidBy').value=e.paidBy==='roommate'?'roommate':'me';syncShareUI();
-  $('formTitle').textContent='Edit expense';$('formError').textContent='';
+  $('formTitle').textContent='Edit expense';$('formError').textContent='';$('deleteEntry').hidden=false;
   renderForm();updatePreview();
-  $('entryForm').scrollIntoView({block:'nearest',behavior:'smooth'});
-  $('amount').focus();
+  openSheet({editing:true});
 }
 function submitForm(ev){
   ev.preventDefault();
@@ -962,8 +1118,7 @@ function submitForm(ev){
   var k=monthKey(date);
   toast((old?'Updated ':'Added ')+name+' '+rupee(mine(entry))+(k!==state.view?' in '+monthName(k):'')+'.');
   resetForm();
-  var first=$('chips').querySelector('button');
-  if(first)first.focus();
+  closeSheet();
 }
 
 /* roommate balance */
@@ -978,7 +1133,7 @@ function currentBalance(){
 function renderBalance(){
   var all=allEntries().filter(function(e){return typeof e.amount==='number';}),sets=settlements();
   var any=sets.length>0||all.some(function(e){return peopleOf(e)>1;});
-  $('balCard').hidden=!any;
+  $('balCard').hidden=!any;$('balLink').hidden=!any;
   if(!any)return;
   var b=balanceOf(all,sets),n=$('balNum'),note=$('balNote');
   if(b>0){n.textContent='Others owe you '+rupee(b);n.className='balnum pos';note.textContent='Others owe you this much for shared items.';}
@@ -990,6 +1145,7 @@ function renderBalance(){
       h('span',null,dayLabel(x.date)+' · '+(x.dir==='got'?'They paid me ':'I paid them ')+rupee(x.amount)),
       h('button',{type:'button',class:'link danger','aria-label':'Delete payment of '+rupee(x.amount)+' on '+dayLabel(x.date),onclick:function(){removeSettlement(x);}},'Delete')));
   });
+  $('balLink').textContent='Balance with others: '+n.textContent+' \u203A';
 }
 function addSettlement(dir){
   var amt=parseAmount($('setAmt').value),err=$('setErr');
@@ -1014,21 +1170,44 @@ function dropEntry(e){
     return store.set('m-'+k,{entries:entriesOf(k).filter(function(y){return y.id!==e.id;})});
   });
 }
-function quickCandidates(){
-  var counts={};
-  allEntries().forEach(function(e){if(e.item&&item(e.item))counts[e.item]=(counts[e.item]||0)+1;});
-  return state.settings.items.filter(function(i){return counts[i.id]&&lastAmount(i.id)!=null;})
-    .sort(function(a,b){return counts[b.id]-counts[a.id];}).slice(0,6);
+function itemStats(){
+  var st={};
+  allEntries().forEach(function(e){
+    if(!e.item||!item(e.item))return;
+    var o=st[e.item]||(st[e.item]={n:0,hours:[],days:{}});
+    o.n++;o.days[e.date]=1;
+    if(typeof e.t==='number'&&e.t>1e12){var t=new Date(e.t);o.hours.push(t.getHours()+t.getMinutes()/60);}
+  });
+  return st;
+}
+function suggestions(){
+  var st=itemStats(),now=new Date(),hr=now.getHours()+now.getMinutes()/60,today=todayISO(),doneToday={};
+  entriesOf(monthKey(today)).forEach(function(e){if(e.date===today&&e.item)doneToday[e.item]=(doneToday[e.item]||0)+1;});
+  var scored=state.settings.items.filter(function(i){return st[i.id]&&lastAmount(i.id)!=null;}).map(function(i){
+    var o=st[i.id],nd=Object.keys(o.days).length,per=o.n/nd,dist=null;
+    if(o.hours.length>=2){dist=Math.abs(hr-median(o.hours));dist=Math.min(dist,24-dist);}
+    return {item:i,n:o.n,dist:dist,done:(doneToday[i.id]||0)>=Math.max(1,Math.round(per))};
+  });
+  var likely=scored.filter(function(x){return x.dist!=null&&x.dist<=2.5&&!x.done;}).sort(function(a,b){return a.dist-b.dist;}).slice(0,3);
+  var used={};likely.forEach(function(x){used[x.item.id]=1;});
+  var regs=scored.filter(function(x){return !used[x.item.id];}).sort(function(a,b){return b.n-a.n;}).slice(0,Math.max(3,6-likely.length));
+  return {likely:likely.map(function(x){return x.item;}),regulars:regs.map(function(x){return x.item;})};
 }
 function renderQuick(){
-  var box=$('quickChips'),c=quickCandidates();
-  $('quickCard').hidden=c.length===0;
-  if(!c.length)return;
-  box.replaceChildren();
-  c.forEach(function(i){
-    var amt=lastAmount(i.id);
-    box.append(h('button',{type:'button',class:'chip','aria-label':'Log '+i.name+' '+rupee(amt)+' for today',onclick:function(){quickAdd(i);}},i.name,h('span',{class:'qa',text:rupee(amt)})));
-  });
+  var s=suggestions();
+  function fill(box,items){
+    box.replaceChildren();
+    items.forEach(function(i){
+      var amt=lastAmount(i.id);
+      box.append(h('button',{type:'button',class:'chip','aria-label':'Log '+i.name+' '+rupee(amt)+' for today',onclick:function(){quickAdd(i);}},i.name,h('span',{class:'qa',text:rupee(amt)})));
+    });
+  }
+  $('quickLikely').hidden=s.likely.length===0;
+  $('quickRegs').hidden=s.regulars.length===0;
+  fill($('quickLikelyChips'),s.likely);
+  fill($('quickChips'),s.regulars);
+  renderRepeatYesterday();
+  $('quickCard').hidden=$('quickLikely').hidden&&$('quickRegs').hidden&&$('repYBtn').hidden;
 }
 function quickAdd(i){
   var amt=lastAmount(i.id);
@@ -1037,6 +1216,51 @@ function quickAdd(i){
   state.view=monthKey(entry.date);
   saveEntry(entry,null);
   toast('Added '+i.name+' '+rupee(mine(entry))+' for today.',function(){dropEntry(entry);});
+}
+function yesterdayISO(){var d=new Date();d.setDate(d.getDate()-1);return isoOf(d);}
+function yesterdayEntries(){
+  var y=yesterdayISO();
+  return entriesOf(monthKey(y)).filter(function(e){return e.date===y&&e.item!=='repeat';});
+}
+function renderRepeatYesterday(){
+  var btn=$('repYBtn'),list=yesterdayEntries(),flags=state.docs.flags||{};
+  var show=list.length>0&&flags.repeatedDate!==todayISO();
+  btn.hidden=!show;
+  if(!show)return;
+  var total=round2(list.reduce(function(t,e){return t+mine(e);},0));
+  btn.textContent='Repeat yesterday: '+list.length+(list.length===1?' item, ':' items, ')+rupee(total);
+}
+function repeatYesterday(){
+  var list=yesterdayEntries();
+  if(!list.length)return;
+  var today=todayISO(),mk=monthKey(today),stamp=Date.now();
+  var added=list.map(function(e,i){return Object.assign({},e,{id:newId()+i,t:stamp+i,date:today});});
+  var ids={};added.forEach(function(e){ids[e.id]=1;});
+  state.view=mk;
+  store.set('m-'+mk,{entries:entriesOf(mk).concat(added)});
+  store.set('flags',{repeatedDate:today});
+  toast('Added '+added.length+(added.length===1?' item':' items')+' from yesterday.',function(){
+    store.set('m-'+mk,{entries:entriesOf(mk).filter(function(e){return !ids[e.id];})});
+    store.set('flags',{});
+  });
+}
+function renderToday(){
+  var today=todayISO(),list=entriesOf(monthKey(today)).filter(function(e){return e.date===today;}).sort(sortEntries);
+  var box=$('todayList');
+  box.replaceChildren();
+  $('todayTotal').textContent=rupee(round2(list.reduce(function(t,e){return t+mine(e);},0)));
+  if(!list.length){box.append(h('p',{class:'hint',text:'Nothing logged today yet. Tap + to add an expense.'}));return;}
+  list.forEach(function(e){box.append(rowEl(e));});
+}
+function renderStreak(){
+  var el=$('streakLine'),note=$('streakNote'),budget=state.settings.budget;
+  var info=streakInfo(allEntries().filter(function(e){return typeof e.amount==='number';}),budget,todayISO());
+  if(!info||(info.current===0&&info.best===0)){el.hidden=true;note.textContent='';return;}
+  el.hidden=false;
+  el.textContent=info.current>0
+    ?'Under-budget streak: '+info.current+(info.current===1?' day':' days')+(info.best>info.current?' · Best: '+info.best:'')
+    :'Your streak restarts with your next day under budget. Best: '+info.best+(info.best===1?' day.':' days.');
+  note.textContent='A day counts when you log it and spend no more than your budget spread evenly over that month (about '+rupee(Math.round(budget/daysIn(monthKey(todayISO()))))+' a day now).';
 }
 
 /* nudge: a gentle reminder to log meals */
@@ -1053,7 +1277,7 @@ function renderNudge(){
   n.replaceChildren(
     h('span',{text:pick.name+' is not logged yet today.'}),
     h('span',{class:'actions'},
-      h('button',{type:'button',class:'link',onclick:function(){selectItem(pick.id);}},'Add it'),
+      h('button',{type:'button',class:'link',onclick:function(){openSheet({item:pick.id});}},'Add it'),
       h('button',{type:'button',class:'link',onclick:function(){state.nudgeOff[pick.id]=true;n.hidden=true;}},'Not today')));
   n.hidden=false;
 }
@@ -1219,18 +1443,57 @@ function toast(msg,undo){
 }
 function setTab(t){
   state.tab=t;
-  $('dayList').hidden=t!=='days';$('insightView').hidden=t!=='insights';$('textView').hidden=t!=='text';
+  $('dayList').hidden=t!=='days';$('textView').hidden=t!=='text';
   $('tabDays').setAttribute('aria-selected',String(t==='days'));
-  $('tabInsights').setAttribute('aria-selected',String(t==='insights'));
   $('tabText').setAttribute('aria-selected',String(t==='text'));
-  if(t==='days')renderLog();else $('filters').hidden=true;
-  if(t==='insights')renderInsights();
+  if(t==='days')renderLog();else{$('filters').hidden=true;$('logHint').hidden=true;}
   if(t==='text')renderText();
+}
+function go(name){
+  state.screen=name;
+  if(name==='today')state.view=monthKey(todayISO());
+  ['today','log','insights','more'].forEach(function(n){
+    var cap=n.charAt(0).toUpperCase()+n.slice(1);
+    $('screen'+cap).hidden=n!==name;
+    var b=$('nav'+cap);
+    if(n===name)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
+  });
+  renderAll();
+  try{window.scrollTo(0,0);}catch(err){}
+}
+function openSheet(opts){
+  opts=opts||{};
+  state.opener=document.activeElement;
+  if(!opts.editing){resetForm();$('date').value=todayISO();}
+  $('sheet').hidden=false;
+  document.body.classList.add('noscroll');
+  if(opts.item&&opts.item!=='new'&&item(opts.item)){selectItem(opts.item);return;}
+  if(opts.editing){$('amount').focus();return;}
+  var first=$('chips').querySelector('button');
+  if(first)first.focus();
+}
+function closeSheet(){
+  if($('sheet').hidden)return;
+  $('sheet').hidden=true;
+  document.body.classList.remove('noscroll');
+  resetForm();
+  var o=state.opener;state.opener=null;
+  if(o&&o.focus&&document.contains(o)){try{o.focus();}catch(err){}}
+}
+function sheetFocusables(){
+  return [].slice.call($('sheet').querySelectorAll('button,input,select,textarea')).filter(function(el){return !el.disabled&&!el.closest('[hidden]');});
+}
+function handleLaunch(){
+  var a=null;
+  try{a=new URLSearchParams(location.search).get('add');}catch(err){return;}
+  if(!a)return;
+  try{history.replaceState(null,'',location.pathname+location.hash);}catch(err){}
+  openSheet({item:a});
 }
 
 /* wiring */
 $('entryForm').addEventListener('submit',submitForm);
-$('cancelEdit').addEventListener('click',function(){resetForm();});
+$('cancelEdit').addEventListener('click',function(){closeSheet();});
 $('amount').addEventListener('input',updatePreview);
 $('peopleInput').addEventListener('input',updatePreview);
 $('sharedChk').addEventListener('change',function(){syncShareUI();updatePreview();});
@@ -1239,7 +1502,26 @@ $('nextM').addEventListener('click',function(){state.view=shiftMonth(state.view,
 $('thisMonth').addEventListener('click',function(){state.view=monthKey(todayISO());renderAll();});
 $('tabDays').addEventListener('click',function(){setTab('days');});
 $('tabText').addEventListener('click',function(){setTab('text');});
-$('tabInsights').addEventListener('click',function(){setTab('insights');});
+$('navToday').addEventListener('click',function(){go('today');});
+$('navLog').addEventListener('click',function(){go('log');});
+$('navInsights').addEventListener('click',function(){go('insights');});
+$('navMore').addEventListener('click',function(){go('more');});
+$('balLink').addEventListener('click',function(){go('more');try{$('balCard').scrollIntoView({block:'start'});}catch(err){}});
+$('repYBtn').addEventListener('click',repeatYesterday);
+$('fab').addEventListener('click',function(){openSheet();});
+$('sheetClose').addEventListener('click',function(){closeSheet();});
+$('sheetBackdrop').addEventListener('click',function(){closeSheet();});
+$('deleteEntry').addEventListener('click',function(){var e=state.editing;if(!e)return;closeSheet();removeEntry(e);});
+document.addEventListener('keydown',function(ev){
+  if($('sheet').hidden)return;
+  if(ev.key==='Escape'){closeSheet();return;}
+  if(ev.key!=='Tab')return;
+  var f=sheetFocusables();
+  if(!f.length)return;
+  var first=f[0],last=f[f.length-1];
+  if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus();}
+  else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus();}
+});
 $('q').addEventListener('input',function(ev){state.q=ev.target.value.trim().toLowerCase();renderLog();});
 $('gf').addEventListener('change',function(ev){state.gf=ev.target.value;renderLog();});
 $('paidBy').addEventListener('change',updatePreview);
@@ -1260,12 +1542,6 @@ $('addRep').addEventListener('click',function(){
   var names=$('repRows').querySelectorAll('input.n');
   var last=names[names.length-1];
   if(last){last.focus();last.select();}
-});
-$('settingsBtn').addEventListener('click',function(){
-  var st=$('settings'),open=st.hidden;
-  st.hidden=!open;
-  this.setAttribute('aria-expanded',String(open));
-  if(open){renderSettings();st.scrollIntoView({block:'nearest',behavior:'smooth'});}
 });
 $('budgetInput').addEventListener('input',function(ev){
   var n=parseFloat(String(ev.target.value).replace(/[,\s₹]/g,''));
@@ -1308,6 +1584,7 @@ function init(){
   requestPersist();
   renderAll();
   updateBackupInfo();
+  handleLaunch();
   if('serviceWorker' in navigator){
     window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});
   }

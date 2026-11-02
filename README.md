@@ -5,19 +5,18 @@ It works with no internet after the first open. Your entries are stored on your 
 
 ## What the app does
 
-- **Daily log** with one-tap item buttons that remember the last price.
-- **Quick add:** one tap logs a regular item for today, with Undo.
-- **Budget meter** with a pace marker and a per-day figure for the rest of the month.
-- **Limits per group** (Settings): a group bar turns amber at 80% and red past the limit.
-- **Shared items by number of people:** set how many people share an item (counting yourself). Your part is the bill divided by that number.
-- **Balance with others:** tracks who paid at the shop and payments between you, and shows who owes whom.
-- **Insights tab:** spending by day, comparison with last month, and your biggest items.
-- **Monthly repeats** (Settings): items added to your log automatically on the day you choose.
-- **Search and group filter** on the By day list.
-- **Plain text and CSV downloads** for each month.
-- **Meal nudge:** a reminder banner if lunch (after 2 pm) or dinner (after 9 pm) is not logged.
-- **Appearance:** match your phone, light, or dark.
-- **Backup and restore** in Settings.
+- **Four tabs** at the bottom: Today, Log, Insights, More. A floating **+** button opens the Add expense form as a sheet.
+- **Today:** budget meter, streak, quick add, and today's entries. "Where it went" is folded away until you tap it.
+- **Quick add** with smart suggestions: items you usually buy around this time of day come first. One tap logs at the last price, with Undo.
+- **Repeat yesterday:** adds yesterday's entries to today in one tap, with Undo.
+- **Under-budget streak:** counts days you logged and stayed within your budget spread evenly over the month.
+- **Compact log:** tap an entry to edit, swipe left to delete. Only the last 7 days are open; older days are folded.
+- **Home-screen shortcuts:** long-press the installed icon for Add lunch, Add dinner, Add expense. You may need to remove the icon and install again once for these to appear.
+- **Limits per group**, **monthly repeats**, **backup**, **theme** and the item list are in collapsible sections under More.
+- **Shared items by number of people:** your part is the bill divided by that number. The balance with others is tracked under More.
+- **Insights:** spending by day, comparison with last month, biggest items.
+- **Search and group filter**, plus **plain text and CSV downloads** in the Log tab.
+- **Meal nudge** if lunch (after 2 pm) or dinner (after 9 pm) is not logged.
 
 ## What is in this folder
 
