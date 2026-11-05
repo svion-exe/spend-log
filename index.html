@@ -276,6 +276,26 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
 .todayline{margin:0;font-size:18px;font-weight:700;font-family:var(--font-num);font-variant-numeric:tabular-nums}
 .todayline.over{color:var(--bad)}
 .gbar i.dim{opacity:.55}
+/* month calendar */
+.calhead,.calgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.calhead span{text-align:center;font-size:11px;font-weight:600;color:var(--muted)}
+.cal{font:inherit;color:var(--fg);border:1px solid var(--line);border-radius:8px;min-height:46px;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;background:transparent;min-width:0}
+.cal .dn{font-size:13px;font-weight:600;line-height:1}
+.cal .cv{font-size:10px;line-height:1;font-family:var(--font-num);font-variant-numeric:tabular-nums;min-height:10px}
+.cal.lv1{background:var(--accent-soft);border-color:transparent;background:color-mix(in srgb,var(--accent) 16%,var(--surface));}
+.cal.lv2{background:var(--accent-soft);border-color:transparent;background:color-mix(in srgb,var(--accent) 40%,var(--surface));}
+.cal.lv3{background:var(--warn-soft);border-color:transparent;background:color-mix(in srgb,var(--warn) 38%,var(--surface));}
+.cal.lv4{background:var(--bad-soft);border-color:transparent;background:color-mix(in srgb,var(--bad) 42%,var(--surface));}
+.cal.today{box-shadow:inset 0 0 0 2px var(--fg)}
+.cal.future{opacity:.38;cursor:default}
+.calblank{min-height:46px}
+.callegend{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:6px 14px;font-size:12px;color:var(--muted);margin:0;padding:0;list-style:none}
+.callegend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-2px;border:1px solid var(--line)}
+.callegend .l1{background:var(--accent-soft);background:color-mix(in srgb,var(--accent) 16%,var(--surface))}
+.callegend .l2{background:var(--accent-soft);background:color-mix(in srgb,var(--accent) 40%,var(--surface))}
+.callegend .l3{background:var(--warn-soft);background:color-mix(in srgb,var(--warn) 38%,var(--surface))}
+.callegend .l4{background:var(--bad-soft);background:color-mix(in srgb,var(--bad) 42%,var(--surface))}
+.day.flash{box-shadow:0 0 0 2px var(--accent);border-radius:8px}
 </style>
 </head>
 <body>
@@ -743,6 +763,26 @@ function amountCheck(entries,itemId,amount){
   if(amount<=m/3)return {kind:'low',median:Math.round(m)};
   return null;
 }
+function calendarModel(key,entries,budget,todayStr){
+  var dim=daysIn(key),p=key.split('-').map(Number);
+  var lead=(new Date(p[0],p[1]-1,1).getDay()+6)%7;
+  var by={},mx=0;
+  entries.forEach(function(e){
+    if(typeof e.amount!=='number')return;
+    by[e.date]=round2((by[e.date]||0)+mine(e));
+  });
+  Object.keys(by).forEach(function(k){if(by[k]>mx)mx=by[k];});
+  var allow=budget>0?budget/dim:0,days=[];
+  for(var d=1;d<=dim;d++){
+    var iso=key+'-'+pad2(d),has=Object.prototype.hasOwnProperty.call(by,iso),t=has?by[iso]:0,level=0;
+    if(has){
+      if(allow>0){var r=t/allow;level=r<=0.5?1:(r<=1.005?2:(r<=1.5?3:4));}
+      else level=(mx>0&&t/mx>0.5)?2:1;
+    }
+    days.push({d:d,iso:iso,total:t,has:has,level:level,future:iso>todayStr,today:iso===todayStr});
+  }
+  return {lead:lead,days:days,allow:allow};
+}
 /*PURE-END*/
 
 var DEFAULTS={
@@ -1009,7 +1049,7 @@ function rowEl(e){
 }
 function dayEl(date,list,today){
   var total=round2(list.reduce(function(t,e){return t+mine(e);},0));
-  return h('section',{class:'day'},
+  return h('section',{class:'day','data-date':date},
     h('div',{class:'dayhead'},h('span',null,dayLabel(date),date===today?h('span',{class:'today',text:'Today'}):null),h('span',{class:'amt',text:rupee(total)})),
     h('div',{class:'dayrows'},list.map(rowEl)));
 }
@@ -1504,6 +1544,42 @@ function dailyChart(key,vals,allow){
   });
   return svg;
 }
+var LEVEL_TEXT=['nothing logged','well within your daily allowance','within your daily allowance','over your daily allowance','well over your daily allowance'];
+function jumpToDay(iso){
+  state.q='';state.gf='';
+  $('q').value='';$('gf').value='';
+  setTab('days');
+  go('log');
+  var el=document.querySelector('#dayList [data-date="'+iso+'"]');
+  if(!el)return;
+  var fold=el.closest('details');
+  if(fold)fold.open=true;
+  try{el.scrollIntoView({block:'center',behavior:window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});}catch(err){}
+  el.classList.add('flash');
+  setTimeout(function(){el.classList.remove('flash');},1400);
+}
+function calendarCard(key,entries){
+  var m=calendarModel(key,entries,state.settings.budget,todayISO());
+  var head=h('div',{class:'calhead','aria-hidden':'true'},['M','T','W','T','F','S','S'].map(function(x){return h('span',{text:x});}));
+  var grid=h('div',{class:'calgrid',role:'group','aria-label':'Spending by day for '+monthName(key)});
+  for(var i=0;i<m.lead;i++)grid.append(h('span',{class:'calblank','aria-hidden':'true'}));
+  m.days.forEach(function(c){
+    var label=dayLabel(c.iso)+(c.today?', today':'')+', '+(c.has?rupee(c.total)+', '+LEVEL_TEXT[c.level]+'. Opens the log.':(c.future?'upcoming':'nothing logged. Opens the add form.'));
+    var amount=c.has?(c.total>0?compact(c.total):'0'):'';
+    var btn=h('button',{type:'button',class:'cal lv'+c.level+(c.today?' today':'')+(c.future?' future':''),'aria-label':label,disabled:c.future,
+      onclick:function(){if(c.has)jumpToDay(c.iso);else openSheet({date:c.iso});}},
+      h('span',{class:'dn',text:String(c.d)}),h('span',{class:'cv','aria-hidden':'true',text:amount}));
+    grid.append(btn);
+  });
+  var legend=state.settings.budget>0
+    ?h('ul',{class:'callegend'},
+        h('li',null,h('i',{class:'l1'}),'Under half'),h('li',null,h('i',{class:'l2'}),'Within allowance'),
+        h('li',null,h('i',{class:'l3'}),'Over'),h('li',null,h('i',{class:'l4'}),'Well over'))
+    :null;
+  return h('div',{class:'card cmp'},
+    h('h3',{text:'Month at a glance'}),head,grid,legend,
+    h('p',{class:'small muted',text:'Tap a day with entries to see them, or an empty day to add one. Your daily allowance is your budget spread evenly over the month.'}));
+}
 function trendCard(key){
   var rows=[],has=0,mx=0;
   for(var i=5;i>=0;i--){
@@ -1575,8 +1651,9 @@ function renderInsights(){
   var pill=null;
   if(delta!=null)pill=h('span',{class:'pill '+(delta>0?'warn':(delta<0?'good':'')),text:delta>0?rupee(delta)+' more than '+prevName:(delta<0?rupee(-delta)+' less than '+prevName:'Same as '+prevName)});
   var top=topItems(entries,5);
-  var mealC=mealCard(),trendC=trendCard(key);
+  var mealC=mealCard(),trendC=trendCard(key),calC=calendarCard(key,entries);
   box.append(h('div',{class:'insight'},
+    calC,
     h('div',{class:'card cmp'},
       h('h3',{text:'Spending by day'}),
       h('div',{class:'chartwrap'},dailyChart(key,vals,allow)),
