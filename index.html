@@ -255,6 +255,9 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
 .sheethead{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .btn.danger{color:var(--bad);border-color:var(--bad)}
 .toastwrap{z-index:60;padding-bottom:calc(var(--navh) + 12px + env(safe-area-inset-bottom,0px))}
+.todayline{margin:0;font-size:18px;font-weight:700;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.todayline.over{color:var(--bad)}
+.gbar i.dim{opacity:.55}
 </style>
 </head>
 <body>
@@ -282,6 +285,7 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
         </div>
         <div class="meter" id="meter" role="img" aria-label="Budget used"><div class="fill" id="fill"></div><div class="tick" id="tick" hidden></div></div>
         <div class="statusrow"><span class="pill" id="statusPill"></span><span class="small muted" id="perDay"></span></div>
+        <p class="todayline" id="todayLine" hidden></p>
         <p class="small muted" id="forecastLine" hidden></p>
         <p class="small" id="streakLine" hidden></p>
         <button class="link balink" id="balLink" type="button" hidden></button>
@@ -450,6 +454,7 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
           <input id="date" type="date">
         </div>
       </div>
+      <p class="hint" id="amountHint" aria-live="polite" hidden></p>
       <div class="sharebox">
         <div class="sharerow">
           <label class="check" for="sharedChk"><input type="checkbox" id="sharedChk"> Shared with others</label>
@@ -697,6 +702,25 @@ function forecastInfo(key,nowISO,total,budget){
   var proj=Math.round(total/d*dim);
   return {proj:proj,diff:budget>0?proj-budget:null};
 }
+function todayAllowance(budget,entries,todayStr){
+  if(!(budget>0))return null;
+  var key=todayStr.slice(0,7),dim=daysIn(key),d=Number(todayStr.slice(8,10)),before=0,today=0;
+  entries.forEach(function(e){
+    if(e.date.slice(0,7)!==key||typeof e.amount!=='number')return;
+    if(e.date<todayStr)before+=mine(e);else if(e.date===todayStr)today+=mine(e);
+  });
+  var daysLeft=dim-d+1,allow=Math.max(0,(budget-before)/daysLeft);
+  return {allowance:Math.round(allow),spent:round2(today),left:Math.round(allow-today),carry:before};
+}
+function amountCheck(entries,itemId,amount){
+  if(!itemId||itemId==='other'||!(amount>0))return null;
+  var v=entries.filter(function(e){return e.item===itemId&&typeof e.amount==='number'&&e.amount>0;}).map(function(e){return e.amount;});
+  if(v.length<5)return null;
+  var m=median(v);
+  if(amount>=m*3)return {kind:'high',median:Math.round(m)};
+  if(amount<=m/3)return {kind:'low',median:Math.round(m)};
+  return null;
+}
 /*PURE-END*/
 
 var DEFAULTS={
@@ -716,7 +740,7 @@ var DEFAULTS={
 
 var state={
   docs:{},settings:JSON.parse(JSON.stringify(DEFAULTS)),view:monthKey(todayISO()),
-  editing:null,sel:null,tab:'days',screen:'today',opener:null,ready:true,notice:null,dirty:false,q:'',gf:'',nudgeOff:{},dupKey:null
+  editing:null,sel:null,tab:'days',screen:'today',opener:null,ready:true,notice:null,dirty:false,q:'',gf:'',nudgeOff:{},dupKey:null,sanityKey:null
 };
 var saveTimer=null,toastTimer=null,chain=Promise.resolve();
 
@@ -899,6 +923,12 @@ function renderSummary(){
   if(info.tick!=null&&budget>0){tick.hidden=false;tick.style.left=(info.tick*100)+'%';}else tick.hidden=true;
   var pill=$('statusPill');pill.className='pill '+info.kind;pill.textContent=info.text;
   $('perDay').textContent=(info.perDay!=null&&st.total<budget)?rupee(info.perDay)+' a day left to spend, '+info.daysLeft+' days to go including today':'';
+  var ta=(key===monthKey(todayISO()))?todayAllowance(budget,entries,todayISO()):null,tl=$('todayLine');
+  if(ta){
+    tl.hidden=false;
+    tl.className='todayline'+(ta.left<0?' over':'');
+    tl.textContent=ta.left>=0?'Left for today: '+rupee(ta.left)+' of '+rupee(ta.allowance):'Over today\'s allowance by '+rupee(-ta.left);
+  }else tl.hidden=true;
   var fc=forecastInfo(key,todayISO(),st.total,budget),fl=$('forecastLine');
   if(fc){
     fl.hidden=false;
@@ -1124,7 +1154,15 @@ function selectItem(id){
   updatePreview();
 }
 function syncShareUI(){var on=$('sharedChk').checked;$('peopleInput').disabled=!on;$('paidByWrap').hidden=!on;}
+function updateAmountHint(){
+  var h2=$('amountHint'),amt=parseAmount($('amount').value);
+  var chk=(state.sel&&amt!=null)?amountCheck(allEntries(),state.sel,amt):null;
+  if(!chk){h2.hidden=true;return;}
+  h2.hidden=false;
+  h2.textContent='Usually about '+rupee(chk.median)+' for this item. Check you typed '+rupee(amt)+' correctly.';
+}
 function updatePreview(){
+  updateAmountHint();
   var p=$('preview'),shared=$('sharedChk').checked,amt=parseAmount($('amount').value);
   if(!shared){p.textContent='';return;}
   if(amt==null){p.textContent='Enter the total bill to see your part. Count yourself as one of the people.';return;}
@@ -1175,6 +1213,11 @@ function submitForm(ev){
   var old=state.editing;
   var paidBy=(shared&&$('paidBy').value==='roommate')?'roommate':'me';
   var entry={id:old?old.id:newId(),t:old?old.t:Date.now(),date:date,item:itemId,name:name,group:group,amount:amount,share:share,people:people,paidBy:paidBy,note:$('note').value.trim().slice(0,80)};
+  if(!old||old.amount!==amount){
+    var ck=amountCheck(allEntries().filter(function(e){return !old||e.id!==old.id;}),itemId,amount),sk='s|'+itemId+'|'+amount;
+    if(ck&&state.sanityKey!==sk){state.sanityKey=sk;err.textContent='That is far from your usual '+rupee(ck.median)+'. Tap the button again if '+rupee(amount)+' is right.';return;}
+    state.sanityKey=null;
+  }
   if(!old){
     var key=[itemId,name,amount,date].join('|'),cut=Date.now()-120000;
     var dup=entriesOf(monthKey(date)).some(function(e){return e.date===date&&e.item===itemId&&e.name===name&&e.amount===amount&&typeof e.t==='number'&&e.t>=cut;});
@@ -1439,6 +1482,25 @@ function dailyChart(key,vals,allow){
   });
   return svg;
 }
+function trendCard(key){
+  var rows=[],has=0,mx=0;
+  for(var i=5;i>=0;i--){
+    var k=shiftMonth(key,-i),t=monthStats(entriesOf(k)).total;
+    if(t>0)has++;
+    if(t>mx)mx=t;
+    rows.push({k:k,t:t});
+  }
+  if(has<2)return null;
+  var ul=h('ul',{class:'groups'});
+  rows.forEach(function(r){
+    var bar=h('i',{class:r.k===key?null:'dim'});bar.style.width=(mx>0?r.t/mx*100:0)+'%';
+    ul.append(h('li',null,h('div',{class:'gl'},h('span',{text:MONTHS[Number(r.k.slice(5,7))-1]+(r.k===key?' (this view)':'')}),h('span',{class:'amt',text:r.t>0?rupee(r.t):'No data'})),h('div',{class:'gbar'},bar)));
+  });
+  var budget=state.settings.budget,avg=0,n=0;
+  rows.forEach(function(r){if(r.t>0&&r.k<monthKey(todayISO())){avg+=r.t;n++;}});
+  var note=n>0?'Average of the finished months shown: '+rupee(Math.round(avg/n))+(budget>0?' a month, against your budget of '+rupee(budget)+'.':' a month.'):'';
+  return h('div',{class:'card cmp'},h('h3',{text:'Last 6 months'}),ul,note?h('p',{class:'small muted',text:note}):null);
+}
 function mealCard(){
   var all=allEntries(),blocks=[],MIN=6;
   [['lunch','Lunch'],['dinner','Dinner']].forEach(function(m){
@@ -1491,7 +1553,7 @@ function renderInsights(){
   var pill=null;
   if(delta!=null)pill=h('span',{class:'pill '+(delta>0?'warn':(delta<0?'good':'')),text:delta>0?rupee(delta)+' more than '+prevName:(delta<0?rupee(-delta)+' less than '+prevName:'Same as '+prevName)});
   var top=topItems(entries,5);
-  var mealC=mealCard();
+  var mealC=mealCard(),trendC=trendCard(key);
   box.append(h('div',{class:'insight'},
     h('div',{class:'card cmp'},
       h('h3',{text:'Spending by day'}),
@@ -1505,6 +1567,7 @@ function renderInsights(){
       h('h3',{text:'Biggest items'}),
       h('ul',{class:'toplist'},top.map(function(t){return h('li',null,h('span',{text:t.name+(t.count>1?' x'+t.count:'')}),h('span',{class:'amt',text:rupee(t.total)}));})),
       h('p',{class:'small muted',text:'Highest day: '+dayLabel(key+'-'+pad2(hi+1))+', '+rupee(vals[hi])+'.'})),
+    trendC,
     mealC
   ));
 }

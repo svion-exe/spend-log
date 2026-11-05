@@ -18,6 +18,9 @@ It works with no internet after the first open. Your entries are stored on your 
 - **Shared items by number of people:** your part is the bill divided by that number. The balance with others is tracked under More.
 - **Duplicate guard:** adding the same entry twice within two minutes asks you to confirm.
 - **Share summary:** under More, send your roommate a text of this month's shared items and who owes whom.
+- **Left for today:** the big line on Today. Whatever you did not spend on earlier days carries over, so one cheap day gives you room the next.
+- **Typo guard:** if an amount is about 3 times more or less than your usual for that item, the form shows a hint and asks you to tap again to confirm.
+- **Last 6 months:** in Insights, monthly totals side by side.
 - **Month-end forecast:** from day 5, a line on Today says where the month will end at your current pace.
 - **What your meals cost:** in Insights, your average lunch and dinner price, the cheapest and dearest weekday, and the time of day you paid least. It appears once you have 6 logged meals of a kind.
 - **Fix amount:** after adding an entry, a button on the confirmation lets you correct it at once.

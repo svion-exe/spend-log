@@ -1,7 +1,7 @@
 /* Service worker: keeps the app working with no internet.
    Network first, so a new version reaches you when you are online.
    Your entries are not stored here; they live in the page's own storage. */
-const CACHE = 'spend-log-v7';
+const CACHE = 'spend-log-v8';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', (event) => {
