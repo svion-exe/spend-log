@@ -282,6 +282,7 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
         </div>
         <div class="meter" id="meter" role="img" aria-label="Budget used"><div class="fill" id="fill"></div><div class="tick" id="tick" hidden></div></div>
         <div class="statusrow"><span class="pill" id="statusPill"></span><span class="small muted" id="perDay"></span></div>
+        <p class="small muted" id="forecastLine" hidden></p>
         <p class="small" id="streakLine" hidden></p>
         <button class="link balink" id="balLink" type="button" hidden></button>
         <details class="fold">
@@ -659,6 +660,43 @@ function buildShareSummary(key,entries,balance){
   L.push(balance>0?'Balance so far: please pay me '+rupee(balance)+'.':balance<0?'Balance so far: I owe '+rupee(-balance)+'.':'Balance so far: all settled.');
   return L.join('\n');
 }
+var SLOTS=[['before 12',0,12],['between 12 and 2',12,14],['between 2 and 5',14,17],['between 5 and 8',17,20],['between 8 and 10',20,22],['after 10',22,24]];
+function mealPatterns(entries,itemId){
+  var days=[0,1,2,3,4,5,6].map(function(){return {sum:0,n:0};});
+  var slots=SLOTS.map(function(x){return {label:x[0],lo:x[1],hi:x[2],sum:0,n:0};});
+  var n=0,sum=0;
+  entries.forEach(function(e){
+    if(e.item!==itemId||typeof e.amount!=='number')return;
+    var m=mine(e);
+    if(!(m>0))return;
+    var p=e.date.split('-').map(Number),wd=new Date(p[0],p[1]-1,p[2]).getDay();
+    days[wd].sum+=m;days[wd].n++;n++;sum+=m;
+    if(typeof e.t==='number'&&e.t>1e12){
+      var t=new Date(e.t);
+      if(isoOf(t)===e.date){var hr=t.getHours();slots.forEach(function(sl){if(hr>=sl.lo&&hr<sl.hi){sl.sum+=m;sl.n++;}});}
+    }
+  });
+  var names=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  return {
+    n:n,avg:n?sum/n:0,
+    byDay:[1,2,3,4,5,6,0].map(function(i){return {name:names[i],n:days[i].n,avg:days[i].n?days[i].sum/days[i].n:0};}),
+    bySlot:slots.map(function(x){return {label:x.label,n:x.n,avg:x.n?x.sum/x.n:0};})
+  };
+}
+function extremes(list){
+  var ok=list.filter(function(x){return x.n>=2;});
+  if(ok.length<2)return null;
+  var lo=ok[0],hi=ok[0];
+  ok.forEach(function(x){if(x.avg<lo.avg)lo=x;if(x.avg>hi.avg)hi=x;});
+  return (hi.avg-lo.avg>=5)?{lo:lo,hi:hi}:null;
+}
+function forecastInfo(key,nowISO,total,budget){
+  if(monthKey(nowISO)!==key)return null;
+  var d=Number(nowISO.slice(8,10)),dim=daysIn(key);
+  if(d<5||d>=dim||!(total>0))return null;
+  var proj=Math.round(total/d*dim);
+  return {proj:proj,diff:budget>0?proj-budget:null};
+}
 /*PURE-END*/
 
 var DEFAULTS={
@@ -861,6 +899,11 @@ function renderSummary(){
   if(info.tick!=null&&budget>0){tick.hidden=false;tick.style.left=(info.tick*100)+'%';}else tick.hidden=true;
   var pill=$('statusPill');pill.className='pill '+info.kind;pill.textContent=info.text;
   $('perDay').textContent=(info.perDay!=null&&st.total<budget)?rupee(info.perDay)+' a day left to spend, '+info.daysLeft+' days to go including today':'';
+  var fc=forecastInfo(key,todayISO(),st.total,budget),fl=$('forecastLine');
+  if(fc){
+    fl.hidden=false;
+    fl.textContent='At this pace the month ends near '+rupee(fc.proj)+(fc.diff==null?'.':(fc.diff>0?', about '+rupee(fc.diff)+' over budget.':', about '+rupee(-fc.diff)+' under budget.'));
+  }else fl.hidden=true;
   $('legend').textContent=(info.tick!=null&&budget>0)?'The tick marks where an even spread of your budget would be today.':'';
   var ul=$('groups');ul.replaceChildren();
   st.groups.slice().sort(function(a,b){return b[1]-a[1]||(a[0]<b[0]?-1:1);}).forEach(function(g){
@@ -1140,7 +1183,7 @@ function submitForm(ev){
   }
   saveEntry(entry,old);
   var k=monthKey(date);
-  toast((old?'Updated ':'Added ')+name+' '+rupee(mine(entry))+(k!==state.view?' in '+monthName(k):'')+'.');
+  toast((old?'Updated ':'Added ')+name+' '+rupee(mine(entry))+(k!==state.view?' in '+monthName(k):'')+'.',null,old?null:{label:'Fix amount',fn:function(){startEdit(entry);}});
   resetForm();
   closeSheet();
 }
@@ -1396,6 +1439,27 @@ function dailyChart(key,vals,allow){
   });
   return svg;
 }
+function mealCard(){
+  var all=allEntries(),blocks=[],MIN=6;
+  [['lunch','Lunch'],['dinner','Dinner']].forEach(function(m){
+    var p=mealPatterns(all,m[0]);
+    if(p.n<MIN)return;
+    var line=m[1]+': average '+rupee(Math.round(p.avg))+' over '+p.n+' meals.';
+    var d=extremes(p.byDay),sl=extremes(p.bySlot);
+    if(d)line+=' Cheapest on '+d.lo.name+' ('+rupee(Math.round(d.lo.avg))+'), dearest on '+d.hi.name+' ('+rupee(Math.round(d.hi.avg))+').';
+    if(sl)line+=' Lowest when logged '+sl.lo.label+' ('+rupee(Math.round(sl.lo.avg))+').';
+    var mx=0;p.byDay.forEach(function(x){if(x.avg>mx)mx=x.avg;});
+    var ul=h('ul',{class:'groups'});
+    p.byDay.forEach(function(x){
+      var bar=h('i');bar.style.width=(mx>0?x.avg/mx*100:0)+'%';
+      ul.append(h('li',null,h('div',{class:'gl'},h('span',{text:x.name+(x.n?' · '+x.n+(x.n===1?' meal':' meals'):'')}),h('span',{class:'amt',text:x.n?rupee(Math.round(x.avg)):'No data'})),h('div',{class:'gbar'},bar)));
+    });
+    blocks.push(h('div',null,h('p',{text:line}),h('details',{class:'fold'},h('summary',null,m[1]+' by weekday'),h('div',{class:'fold-body'},ul))));
+  });
+  if(!blocks.length)return null;
+  return h('div',{class:'card cmp'},h('h3',{text:'What your meals cost'}),blocks,
+    h('p',{class:'small muted',text:'Based on all your logs. The time is when you logged the meal, so it is only a rough guide.'}));
+}
 function renderInsights(){
   var box=$('insightView'),key=state.view,entries=entriesOf(key);
   box.replaceChildren();
@@ -1427,6 +1491,7 @@ function renderInsights(){
   var pill=null;
   if(delta!=null)pill=h('span',{class:'pill '+(delta>0?'warn':(delta<0?'good':'')),text:delta>0?rupee(delta)+' more than '+prevName:(delta<0?rupee(-delta)+' less than '+prevName:'Same as '+prevName)});
   var top=topItems(entries,5);
+  var mealC=mealCard();
   box.append(h('div',{class:'insight'},
     h('div',{class:'card cmp'},
       h('h3',{text:'Spending by day'}),
@@ -1439,7 +1504,8 @@ function renderInsights(){
     h('div',{class:'card cmp'},
       h('h3',{text:'Biggest items'}),
       h('ul',{class:'toplist'},top.map(function(t){return h('li',null,h('span',{text:t.name+(t.count>1?' x'+t.count:'')}),h('span',{class:'amt',text:rupee(t.total)}));})),
-      h('p',{class:'small muted',text:'Highest day: '+dayLabel(key+'-'+pad2(hi+1))+', '+rupee(vals[hi])+'.'}))
+      h('p',{class:'small muted',text:'Highest day: '+dayLabel(key+'-'+pad2(hi+1))+', '+rupee(vals[hi])+'.'})),
+    mealC
   ));
 }
 
@@ -1453,13 +1519,14 @@ function applyTheme(t){
 
 /* small UI helpers */
 function hideToast(){$('toast').hidden=true;}
-function toast(msg,undo){
+function toast(msg,undo,extra){
   var t=$('toast');
   t.replaceChildren(h('span',{text:msg}));
   if(undo)t.append(h('button',{type:'button',class:'link',onclick:function(){undo();hideToast();}},'Undo'));
+  if(extra)t.append(h('button',{type:'button',class:'link',onclick:function(){hideToast();extra.fn();}},extra.label));
   t.hidden=false;
   clearTimeout(toastTimer);
-  toastTimer=setTimeout(hideToast,undo?7000:3500);
+  toastTimer=setTimeout(hideToast,(undo||extra)?7000:3500);
 }
 function setTab(t){
   state.tab=t;
