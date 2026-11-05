@@ -29,6 +29,7 @@ It works with no internet after the first open. Your entries are stored on your 
 - **What your meals cost:** in Insights, your average lunch and dinner price, the cheapest and dearest weekday, and the time of day you paid least. It appears once you have 6 logged meals of a kind.
 - **Fix amount:** after adding an entry, a button on the confirmation lets you correct it at once.
 - **Insights:** spending by day, comparison with last month, biggest items.
+- **Search all months:** in the Log, tick "Search all months" to find an entry in any month, such as when you last bought oats. Results show how many entries, in how many months, and the total.
 - **Search and group filter**, plus **plain text and CSV downloads** in the Log tab.
 
 ## What is in this folder

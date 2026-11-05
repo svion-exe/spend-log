@@ -310,6 +310,7 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
   .sheetwrap:not([hidden]) .sheet{animation:sheetUp .22s cubic-bezier(.2,.8,.2,1)}
   .sheetwrap:not([hidden]) .backdrop{animation:fadeIn .2s ease-out}
 }
+.allm{grid-column:1/-1;font-size:14px}
 </style>
 </head>
 <body>
@@ -384,6 +385,7 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
       <div class="filters" id="filters" hidden>
         <input id="q" type="text" autocomplete="off" placeholder="Search" aria-label="Search entries">
         <select id="gf" aria-label="Filter by group"><option value="">All groups</option></select>
+        <label class="check allm" for="allMonths"><input type="checkbox" id="allMonths"> Search all months</label>
       </div>
       <p class="hint" id="logHint" hidden>Tap an entry to edit it. Swipe left to delete.</p>
       <div id="dayList" role="tabpanel" aria-labelledby="tabDays"></div>
@@ -828,7 +830,7 @@ var DEFAULTS={
 
 var state={
   docs:{},settings:JSON.parse(JSON.stringify(DEFAULTS)),view:monthKey(todayISO()),
-  editing:null,sel:null,tab:'days',screen:'today',opener:null,ready:true,notice:null,dirty:false,q:'',gf:'',nudgeOff:{},dupKey:null,sanityKey:null
+  editing:null,sel:null,tab:'days',screen:'today',opener:null,ready:true,notice:null,dirty:false,q:'',gf:'',nudgeOff:{},dupKey:null,sanityKey:null,allMonths:false
 };
 var saveTimer=null,toastTimer=null,chain=Promise.resolve();
 
@@ -1076,7 +1078,7 @@ function rowEl(e){
 function dayEl(date,list,today){
   var total=round2(list.reduce(function(t,e){return t+mine(e);},0));
   return h('section',{class:'day','data-date':date},
-    h('div',{class:'dayhead'},h('span',null,dayLabel(date),date===today?h('span',{class:'today',text:'Today'}):null),h('span',{class:'amt',text:rupee(total)})),
+    h('div',{class:'dayhead'},h('span',null,dayLabel(date)+(date.slice(0,4)!==today.slice(0,4)?' '+date.slice(0,4):''),date===today?h('span',{class:'today',text:'Today'}):null),h('span',{class:'amt',text:rupee(total)})),
     h('div',{class:'dayrows'},list.map(rowEl)));
 }
 function passes(e){
@@ -1084,7 +1086,7 @@ function passes(e){
   if(state.q&&((e.name||'')+' '+(e.note||'')).toLowerCase().indexOf(state.q)<0)return false;
   return true;
 }
-function syncFilters(all){
+function syncFilters(all,anyHistory){
   var gs={};
   all.forEach(function(e){gs[e.group||'Other']=1;});
   var names=Object.keys(gs).sort(),sig=names.join('|'),sel=$('gf');
@@ -1095,13 +1097,16 @@ function syncFilters(all){
   }
   if(state.gf&&names.indexOf(state.gf)<0)state.gf='';
   sel.value=state.gf;
-  var on=state.tab==='days'&&all.length>0;
+  var on=state.tab==='days'&&anyHistory;
   $('filters').hidden=!on;
   $('logHint').hidden=!on;
+  $('allMonths').checked=state.allMonths;
 }
 function renderLog(){
-  var box=$('dayList'),all=entriesOf(state.view);
-  syncFilters(all);
+  var box=$('dayList'),month=entriesOf(state.view),everything=allEntries();
+  syncFilters(state.allMonths?everything:month,everything.length>0);
+  var scopeAll=state.allMonths&&!!(state.q||state.gf);
+  var all=scopeAll?everything:month;
   var entries=all.filter(passes);
   box.replaceChildren();
   if(!all.length){
@@ -1117,7 +1122,12 @@ function renderLog(){
     return;
   }
   var filtering=!!(state.q||state.gf);
-  if(filtering)box.append(h('p',{class:'hint',text:'Showing '+entries.length+' of '+all.length+' entries.'}));
+  if(scopeAll){
+    var months={},tot=0;
+    entries.forEach(function(e){months[e.date.slice(0,7)]=1;tot+=mine(e);});
+    var mc=Object.keys(months).length;
+    box.append(h('p',{class:'hint',text:'Found '+entries.length+(entries.length===1?' entry':' entries')+' in '+mc+(mc===1?' month':' months')+', '+rupee(round2(tot))+' in total. The month arrows do not apply to this search.'}));
+  }else if(filtering)box.append(h('p',{class:'hint',text:'Showing '+entries.length+' of '+all.length+' entries.'}));
   var order=[],by={};
   entries.slice().sort(sortEntries).forEach(function(e){if(!by[e.date]){by[e.date]=[];order.push(e.date);}by[e.date].push(e);});
   var days=order.slice().reverse(),today=todayISO();
@@ -1891,6 +1901,7 @@ document.addEventListener('keydown',function(ev){
 });
 $('q').addEventListener('input',function(ev){state.q=ev.target.value.trim().toLowerCase();renderLog();});
 $('gf').addEventListener('change',function(ev){state.gf=ev.target.value;renderLog();});
+$('allMonths').addEventListener('change',function(ev){state.allMonths=ev.target.checked;renderLog();});
 $('paidBy').addEventListener('change',updatePreview);
 $('setGot').addEventListener('click',function(){addSettlement('got');});
 $('setGave').addEventListener('click',function(){addSettlement('gave');});
