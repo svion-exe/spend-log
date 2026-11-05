@@ -7,6 +7,10 @@
 <meta name="description" content="Daily expense log. Your entries stay on this phone.">
 <meta name="theme-color" content="#F1F4EF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0E1411" media="(prefers-color-scheme: dark)">
+<script>
+try{var _p=localStorage.getItem('daily-spend-log:palette');if(_p==='ocean'||_p==='sunset'||_p==='plum')document.documentElement.setAttribute('data-palette',_p);
+var _t=localStorage.getItem('daily-spend-log:theme');if(_t==='light'||_t==='dark')document.documentElement.setAttribute('data-theme',_t);}catch(e){}
+</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -196,6 +200,20 @@ svg.chart .allow{stroke:var(--fg);stroke-width:1;stroke-dasharray:3 3}
 .gbar i.warn{background:var(--warn)}
 .gbar i.bad{background:var(--bad)}
 .itemrow .lim{width:130px}
+/* colour themes: Original is the default and has no rules here */
+:root[data-palette="ocean"]{--bg:#EEF3F8;--surface:#FFFFFF;--surface-2:#E1E9F1;--fg:#13202C;--muted:#55657A;--line:#CFD9E4;--accent:#1B5FA8;--accent-ink:#FFFFFF;--accent-soft:#D6E6F7;color-scheme:light;}
+:root[data-palette="sunset"]{--bg:#FAF3EC;--surface:#FFFFFF;--surface-2:#F1E5D8;--fg:#2A1D14;--muted:#6B5646;--line:#E3D3C2;--accent:#B04A12;--accent-ink:#FFFFFF;--accent-soft:#F9DEC9;color-scheme:light;}
+:root[data-palette="plum"]{--bg:#F6F1F7;--surface:#FFFFFF;--surface-2:#EBE2EE;--fg:#221826;--muted:#66566D;--line:#DDD0E2;--accent:#7B3A94;--accent-ink:#FFFFFF;--accent-soft:#EBD9F2;color-scheme:light;}
+@media (prefers-color-scheme: dark){:root[data-palette="ocean"]:not([data-theme="light"]){--bg:#0B1219;--surface:#121C26;--surface-2:#1A2733;--fg:#E4EDF5;--muted:#9AAFC2;--line:#26384A;--accent:#6AB0F2;--accent-ink:#04203A;--accent-soft:#16344F;color-scheme:dark;}}
+:root[data-palette="ocean"][data-theme="dark"]{--bg:#0B1219;--surface:#121C26;--surface-2:#1A2733;--fg:#E4EDF5;--muted:#9AAFC2;--line:#26384A;--accent:#6AB0F2;--accent-ink:#04203A;--accent-soft:#16344F;color-scheme:dark;}
+@media (prefers-color-scheme: dark){:root[data-palette="sunset"]:not([data-theme="light"]){--bg:#17100B;--surface:#20160F;--surface-2:#2C2017;--fg:#F3E8DD;--muted:#BBA593;--line:#3A2B20;--accent:#F29A5C;--accent-ink:#3A1A05;--accent-soft:#4A2C16;color-scheme:dark;}}
+:root[data-palette="sunset"][data-theme="dark"]{--bg:#17100B;--surface:#20160F;--surface-2:#2C2017;--fg:#F3E8DD;--muted:#BBA593;--line:#3A2B20;--accent:#F29A5C;--accent-ink:#3A1A05;--accent-soft:#4A2C16;color-scheme:dark;}
+@media (prefers-color-scheme: dark){:root[data-palette="plum"]:not([data-theme="light"]){--bg:#130E16;--surface:#1B1420;--surface-2:#261C2D;--fg:#EEE6F2;--muted:#B3A2BC;--line:#35273E;--accent:#C58BE0;--accent-ink:#2D0E3C;--accent-soft:#3B2348;color-scheme:dark;}}
+:root[data-palette="plum"][data-theme="dark"]{--bg:#130E16;--surface:#1B1420;--surface-2:#261C2D;--fg:#EEE6F2;--muted:#B3A2BC;--line:#35273E;--accent:#C58BE0;--accent-ink:#2D0E3C;--accent-soft:#3B2348;color-scheme:dark;}
+.palrow{display:flex;flex-wrap:wrap;gap:10px}
+.pal{font:inherit;font-size:13px;font-weight:600;color:var(--fg);background:var(--surface);border:2px solid var(--line);border-radius:12px;padding:8px 12px 8px 8px;min-height:44px;display:flex;align-items:center;gap:8px;cursor:pointer}
+.pal[aria-pressed="true"]{border-color:var(--accent)}
+.pal .sw{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);flex:none}
 .themebox{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .themebox label{margin:0}
 .themebox select{width:auto;min-width:160px}
@@ -400,8 +418,12 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
           <summary>Appearance</summary>
           <div class="fold-body">
             <div class="themebox">
-              <label for="themeSel">Theme</label>
+              <label for="themeSel">Light or dark</label>
               <select id="themeSel"><option value="auto">Match my phone</option><option value="light">Light</option><option value="dark">Dark</option></select>
+            </div>
+            <div>
+              <p class="qlabel" id="palLabel">Colour theme</p>
+              <div class="palrow" id="palRow" role="group" aria-labelledby="palLabel"></div>
             </div>
           </div>
         </details>
@@ -1065,7 +1087,7 @@ function renderSettings(){
   var gl=$('groupList');gl.replaceChildren();
   var seen={};
   state.settings.items.forEach(function(i){if(!seen[i.group]){seen[i.group]=1;gl.append(h('option',{value:i.group}));}});
-  renderRepeats();$('themeSel').value=loadTheme();
+  renderRepeats();$('themeSel').value=loadTheme();renderPalettes();
 }
 function itemRow(it){
   var people=h('input',{type:'text',inputmode:'numeric',value:String(it.people),placeholder:'People','aria-label':'People sharing '+it.name});
@@ -1578,6 +1600,39 @@ function loadTheme(){try{return localStorage.getItem(THEME_KEY)||'auto';}catch(e
 function applyTheme(t){
   var r=document.documentElement;
   if(t==='light'||t==='dark')r.setAttribute('data-theme',t);else r.removeAttribute('data-theme');
+  refreshChrome();
+}
+var PAL_KEY='daily-spend-log:palette';
+var PALETTES=[
+  {id:'original',name:'Original',acc:'#0D6A56',bg:['#F1F4EF','#0E1411']},
+  {id:'ocean',name:'Ocean',acc:'#1B5FA8',bg:['#EEF3F8','#0B1219']},
+  {id:'sunset',name:'Sunset',acc:'#B04A12',bg:['#FAF3EC','#17100B']},
+  {id:'plum',name:'Plum',acc:'#7B3A94',bg:['#F6F1F7','#130E16']}
+];
+function loadPalette(){try{var p=localStorage.getItem(PAL_KEY);return PALETTES.some(function(x){return x.id===p;})?p:'original';}catch(e){return 'original';}}
+function refreshChrome(){
+  var pal=PALETTES.filter(function(x){return x.id===loadPalette();})[0]||PALETTES[0],mode=loadTheme();
+  var metas=document.querySelectorAll('meta[name="theme-color"]');
+  if(metas.length<2)return;
+  metas[0].setAttribute('content',mode==='dark'?pal.bg[1]:pal.bg[0]);
+  metas[1].setAttribute('content',mode==='light'?pal.bg[0]:pal.bg[1]);
+}
+function applyPalette(id){
+  var r=document.documentElement;
+  if(id==='original')r.removeAttribute('data-palette');else r.setAttribute('data-palette',id);
+  refreshChrome();
+}
+function renderPalettes(){
+  var row=$('palRow'),cur=loadPalette();
+  row.replaceChildren();
+  PALETTES.forEach(function(p){
+    var sw=h('span',{class:'sw','aria-hidden':'true'});
+    sw.style.background='linear-gradient(135deg,'+p.bg[0]+' 50%,'+p.acc+' 50%)';
+    row.append(h('button',{type:'button',class:'pal','aria-pressed':String(p.id===cur),onclick:function(){
+      try{localStorage.setItem(PAL_KEY,p.id);}catch(e){}
+      applyPalette(p.id);renderPalettes();
+    }},sw,p.name));
+  });
 }
 
 /* small UI helpers */
@@ -1736,6 +1791,7 @@ document.addEventListener('visibilitychange',function(){if(!document.hidden){app
 function init(){
   $('date').value=todayISO();
   load();
+  applyPalette(loadPalette());
   applyTheme(loadTheme());
   applyRecurring();
   requestPersist();
