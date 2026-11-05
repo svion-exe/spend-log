@@ -496,6 +496,7 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
           <input id="date" type="date">
         </div>
       </div>
+      <p class="hint" id="priceHint" hidden></p>
       <p class="hint" id="amountHint" aria-live="polite" hidden></p>
       <div class="sharebox">
         <div class="sharerow">
@@ -782,6 +783,16 @@ function calendarModel(key,entries,budget,todayStr){
     days.push({d:d,iso:iso,total:t,has:has,level:level,future:iso>todayStr,today:iso===todayStr});
   }
   return {lead:lead,days:days,allow:allow};
+}
+function priceStats(entries,itemId,excludeId){
+  var v=entries.filter(function(e){return e.item===itemId&&typeof e.amount==='number'&&e.amount>0&&e.id!==excludeId;});
+  if(!v.length)return null;
+  v.sort(function(a,b){return a.date<b.date?-1:(a.date>b.date?1:((a.t||0)-(b.t||0)));});
+  var last=v[v.length-1];
+  var recent=v.slice(-15).map(function(e){return e.amount;}).sort(function(a,b){return a-b;}),n=recent.length;
+  var out={last:last.amount,date:last.date,n:v.length,lo:null,hi:null};
+  if(n>=4){out.lo=recent[Math.floor((n-1)*0.25)];out.hi=recent[Math.ceil((n-1)*0.75)];}
+  return out;
 }
 /*PURE-END*/
 
@@ -1217,11 +1228,17 @@ function selectItem(id){
 }
 function syncShareUI(){var on=$('sharedChk').checked;$('peopleInput').disabled=!on;$('paidByWrap').hidden=!on;}
 function updateAmountHint(){
-  var h2=$('amountHint'),amt=parseAmount($('amount').value);
+  var h2=$('amountHint'),ph=$('priceHint'),amt=parseAmount($('amount').value);
   var chk=(state.sel&&amt!=null)?amountCheck(allEntries(),state.sel,amt):null;
-  if(!chk){h2.hidden=true;return;}
-  h2.hidden=false;
-  h2.textContent='Usually about '+rupee(chk.median)+' for this item. Check you typed '+rupee(amt)+' correctly.';
+  if(chk){
+    h2.hidden=false;
+    h2.textContent='Usually about '+rupee(chk.median)+' for this item. Check you typed '+rupee(amt)+' correctly.';
+  }else h2.hidden=true;
+  var ps=(state.sel&&state.sel!=='other')?priceStats(allEntries(),state.sel,state.editing?state.editing.id:null):null;
+  if(!ps||chk){ph.hidden=true;return;}
+  var when=ps.date===todayISO()?'today':(ps.date===yesterdayISO()?'yesterday':dayLabel(ps.date));
+  ph.hidden=false;
+  ph.textContent='Last time: '+rupee(ps.last)+' ('+when+').'+(ps.lo!=null&&ps.hi>ps.lo?' Usually '+rupee(ps.lo)+' to '+rupee(ps.hi)+'.':'');
 }
 function updatePreview(){
   updateAmountHint();
