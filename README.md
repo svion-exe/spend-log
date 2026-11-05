@@ -19,6 +19,7 @@ It works with no internet after the first open. Your entries are stored on your 
 - **Duplicate guard:** adding the same entry twice within two minutes asks you to confirm.
 - **Share summary:** under More, send your roommate a text of this month's shared items and who owes whom.
 - **Left for today:** the big line on Today. Whatever you did not spend on earlier days carries over, so one cheap day gives you room the next.
+- **Drag to close:** the add form is a bottom sheet with a grab handle. Pull it down to dismiss, or tap outside, press Close, or Escape. Pulling down slowly a short way snaps it back.
 - **Price reference:** when you pick an item, the form shows what you paid last time and your usual range. The amount is still left empty for you to type.
 - **Typo guard:** if an amount is about 3 times more or less than your usual for that item, the form shows a hint and asks you to tap again to confirm.
 - **Last 6 months:** in Insights, monthly totals side by side.

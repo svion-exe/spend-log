@@ -296,6 +296,20 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
 .callegend .l3{background:var(--warn-soft);background:color-mix(in srgb,var(--warn) 38%,var(--surface))}
 .callegend .l4{background:var(--bad-soft);background:color-mix(in srgb,var(--bad) 42%,var(--surface))}
 .day.flash{box-shadow:0 0 0 2px var(--accent);border-radius:8px}
+/* bottom sheet: grab handle, drag to dismiss, entrance */
+.sheet{overscroll-behavior:contain}
+.grab{display:flex;justify-content:center;padding:10px 0 8px;margin:-16px 0 -10px;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.grab i{display:block;width:40px;height:4px;border-radius:2px;background:var(--muted);opacity:.45}
+.sheethead{touch-action:none;user-select:none;-webkit-user-select:none}
+.sheet.dragging{transition:none}
+.sheet.settling{transition:transform .18s ease-out}
+.backdrop.settling{transition:opacity .18s ease-out}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:no-preference){
+  .sheetwrap:not([hidden]) .sheet{animation:sheetUp .22s cubic-bezier(.2,.8,.2,1)}
+  .sheetwrap:not([hidden]) .backdrop{animation:fadeIn .2s ease-out}
+}
 </style>
 </head>
 <body>
@@ -472,8 +486,9 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
 
 <div class="sheetwrap" id="sheet" hidden>
   <div class="backdrop" id="sheetBackdrop"></div>
-  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="formTitle">
-    <div class="sheethead">
+  <section class="sheet" id="sheetPanel" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+    <div class="grab" id="sheetGrab" aria-hidden="true"><i></i></div>
+    <div class="sheethead" id="sheetHead">
       <h2 id="formTitle">Add an expense</h2>
       <button class="icon" id="sheetClose" type="button" aria-label="Close">&times;</button>
     </div>
@@ -1762,6 +1777,7 @@ function go(name){
 }
 function openSheet(opts){
   opts=opts||{};
+  sheetReset();
   state.opener=document.activeElement;
   if(!opts.editing){resetForm();$('date').value=opts.date||todayISO();}
   $('sheet').hidden=false;
@@ -1771,8 +1787,53 @@ function openSheet(opts){
   var first=$('chips').querySelector('button');
   if(first)first.focus();
 }
+function sheetReset(){
+  var p=$('sheetPanel'),b=$('sheetBackdrop');
+  p.style.transform='';b.style.opacity='';
+  p.classList.remove('dragging','settling');b.classList.remove('settling');
+}
+function reducedMotion(){return !!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);}
+function attachSheetDrag(handle){
+  var sy=0,dy=0,t0=0,active=false,pid=null;
+  var panel=$('sheetPanel'),back=$('sheetBackdrop');
+  handle.addEventListener('pointerdown',function(ev){
+    if(ev.pointerType==='mouse'&&ev.button!==0)return;
+    if(ev.target.closest&&ev.target.closest('button'))return;
+    active=true;sy=ev.clientY;dy=0;t0=Date.now();pid=ev.pointerId;
+    panel.classList.remove('settling');back.classList.remove('settling');
+    panel.classList.add('dragging');
+    try{handle.setPointerCapture(ev.pointerId);}catch(err){}
+  });
+  handle.addEventListener('pointermove',function(ev){
+    if(!active||ev.pointerId!==pid)return;
+    dy=Math.max(0,ev.clientY-sy);
+    panel.style.transform='translateY('+dy+'px)';
+    back.style.opacity=String(Math.max(0.25,1-dy/Math.max(panel.offsetHeight,300)));
+  });
+  function end(ev){
+    if(!active||(ev&&ev.pointerId!==undefined&&ev.pointerId!==pid))return;
+    active=false;
+    panel.classList.remove('dragging');
+    var dt=Math.max(1,Date.now()-t0),fast=dy>40&&dy/dt>0.6;
+    if(dy>110||fast){
+      if(reducedMotion()){closeSheet();return;}
+      panel.classList.add('settling');back.classList.add('settling');
+      panel.style.transform='translateY(100%)';back.style.opacity='0';
+      setTimeout(closeSheet,190);
+    }else if(dy>0&&reducedMotion()){
+      sheetReset();
+    }else if(dy>0){
+      panel.classList.add('settling');back.classList.add('settling');
+      panel.style.transform='';back.style.opacity='';
+      setTimeout(sheetReset,200);
+    }else sheetReset();
+  }
+  handle.addEventListener('pointerup',end);
+  handle.addEventListener('pointercancel',end);
+}
 function closeSheet(){
   if($('sheet').hidden)return;
+  sheetReset();
   $('sheet').hidden=true;
   document.body.classList.remove('noscroll');
   resetForm();
@@ -1814,6 +1875,8 @@ $('balLink').addEventListener('click',function(){go('more');try{$('balCard').scr
 $('repYBtn').addEventListener('click',repeatYesterday);
 $('fab').addEventListener('click',function(){openSheet();});
 $('sheetClose').addEventListener('click',function(){closeSheet();});
+attachSheetDrag($('sheetGrab'));
+attachSheetDrag($('sheetHead'));
 $('sheetBackdrop').addEventListener('click',function(){closeSheet();});
 $('deleteEntry').addEventListener('click',function(){var e=state.editing;if(!e)return;closeSheet();removeEntry(e);});
 document.addEventListener('keydown',function(ev){
