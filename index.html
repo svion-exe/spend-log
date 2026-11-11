@@ -273,7 +273,7 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
 .sheethead{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .btn.danger{color:var(--bad);border-color:var(--bad)}
 .toastwrap{z-index:60;padding-bottom:calc(var(--navh) + 12px + env(safe-area-inset-bottom,0px))}
-.todayline{margin:0;font-size:18px;font-weight:700;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.todayline{margin:0;font-size:clamp(15px,4.4vw,18px);font-weight:700;font-family:var(--font-num);font-variant-numeric:tabular-nums}
 .todayline.over{color:var(--bad)}
 .gbar i.dim{opacity:.55}
 /* month calendar */
@@ -311,6 +311,13 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
   .sheetwrap:not([hidden]) .backdrop{animation:fadeIn .2s ease-out}
 }
 .allm{grid-column:1/-1;font-size:14px}
+.obar{position:relative;height:12px;border-radius:6px;background:var(--surface-2);overflow:hidden}
+.obar span,.obar i{position:absolute;top:0;bottom:0}
+.obar .s1{background:var(--accent)}
+.obar .s2{background:var(--accent-soft);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--accent) 60%,transparent) 0 4px,transparent 4px 8px)}
+.obar .s3{background:var(--bad)}
+.obar .s4{background:var(--bad-soft);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--bad) 70%,transparent) 0 4px,transparent 4px 8px)}
+.obar .mark{width:2px;background:var(--fg);left:min(var(--mark,0%),calc(100% - 2px))}
 </style>
 </head>
 <body>
@@ -339,6 +346,8 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
         <div class="meter" id="meter" role="img" aria-label="Budget used"><div class="fill" id="fill"></div><div class="tick" id="tick" hidden></div></div>
         <div class="statusrow"><span class="pill" id="statusPill"></span><span class="small muted" id="perDay"></span></div>
         <p class="todayline" id="todayLine" hidden></p>
+        <div class="obar" id="obar" aria-hidden="true" hidden><span class="s1"></span><span class="s2"></span><span class="s3"></span><span class="s4"></span><i class="mark"></i></div>
+        <p class="small" id="outlookLine" hidden></p>
         <p class="small muted" id="forecastLine" hidden></p>
         <p class="small" id="streakLine" hidden></p>
         <button class="link balink" id="balLink" type="button" hidden></button>
@@ -623,8 +632,8 @@ function paceInfo(key,nowISO,total,budget){
   var d=Number(nowISO.slice(8,10)),dim=daysIn(key);
   var expected=budget*d/dim,daysLeft=dim-d+1;
   var info={tick:d/dim,daysLeft:daysLeft,perDay:Math.floor(left/daysLeft)};
-  if(total<=expected){info.kind='good';info.text=rupee(round2(expected-total))+' under pace';}
-  else{info.kind='warn';info.text=rupee(round2(total-expected))+' over pace';}
+  if(total<=expected){info.kind='good';info.text=rupee(Math.round(expected-total))+' under pace';}
+  else{info.kind='warn';info.text=rupee(Math.round(total-expected))+' over pace';}
   return info;
 }
 function buildText(key,entries,budget,balance){
@@ -807,9 +816,24 @@ function priceStats(entries,itemId,excludeId){
   v.sort(function(a,b){return a.date<b.date?-1:(a.date>b.date?1:((a.t||0)-(b.t||0)));});
   var last=v[v.length-1];
   var recent=v.slice(-15).map(function(e){return e.amount;}).sort(function(a,b){return a-b;}),n=recent.length;
-  var out={last:last.amount,date:last.date,n:v.length,lo:null,hi:null};
+  var out={last:last.amount,date:last.date,n:v.length,lo:null,hi:null,typ:median(recent)};
   if(n>=4){out.lo=recent[Math.floor((n-1)*0.25)];out.hi=recent[Math.ceil((n-1)*0.75)];}
   return out;
+}
+function dayOutlook(budget,entries,todayStr,amts){
+  var ta=todayAllowance(budget,entries,todayStr);
+  if(!ta)return null;
+  var exp=amts.reduce(function(t,x){return t+x;},0);
+  var dim=daysIn(todayStr.slice(0,7)),d=Number(todayStr.slice(8,10));
+  var tomorrow=d<dim?Math.max(0,Math.round((budget-ta.carry-ta.spent-exp)/(dim-d))):null;
+  return {exp:exp,left:ta.left,spare:ta.left-exp,tomorrow:tomorrow,allowance:ta.allowance,spent:ta.spent};
+}
+function outlookBar(allow,spent,exp){
+  var total=spent+exp,scale=Math.max(allow,total,1);
+  function pct(x){return Math.round(x/scale*10000)/100;}
+  var a=Math.min(spent,allow),b=spent<allow?Math.min(total,allow)-spent:0;
+  var c=Math.max(0,spent-allow),dStart=Math.max(allow,spent),dW=total>allow?total-dStart:0;
+  return {spentL:0,spentW:pct(a),expL:pct(a),expW:pct(b),overL:pct(allow),overW:pct(c),overExpL:pct(dStart),overExpW:pct(dW),mark:pct(allow)};
 }
 /*PURE-END*/
 
@@ -1019,6 +1043,28 @@ function renderSummary(){
     tl.className='todayline'+(ta.left<0?' over':'');
     tl.textContent=ta.left>=0?'Left for today: '+rupee(ta.left)+' of '+rupee(ta.allowance):'Over today\'s allowance by '+rupee(-ta.left);
   }else tl.hidden=true;
+  var ob=$('obar'),ol=$('outlookLine');
+  if(ta){
+    var todayS=todayISO(),allE=allEntries(),expected=[];
+    ['lunch','dinner'].forEach(function(id){
+      var it=item(id);
+      if(!it||isSkipped(todayS,id)||allE.some(function(e){return e.date===todayS&&e.item===id;}))return;
+      var ps=priceStats(allE,id);
+      if(!ps||ps.n<3||!(ps.typ>0))return;
+      expected.push({name:it.name.toLowerCase(),amt:Math.round(ps.typ)});
+    });
+    var od=dayOutlook(budget,entries,todayS,expected.map(function(x){return x.amt;})),bar=outlookBar(od.allowance,od.spent,od.exp);
+    var segs=ob.querySelectorAll('span');
+    [['spentL','spentW'],['expL','expW'],['overL','overW'],['overExpL','overExpW']].forEach(function(k,i){segs[i].style.left=bar[k[0]]+'%';segs[i].style.width=bar[k[1]]+'%';});
+    ob.style.setProperty('--mark',bar.mark+'%');
+    ob.hidden=false;
+    if(expected.length){
+      ol.hidden=false;
+      ol.textContent='Striped: still to come today at your usual prices ('+expected.map(function(x){return x.name+' '+rupee(x.amt);}).join(', ')+'). '+
+        (od.spare>=0?'That fits, with '+rupee(od.spare)+' to spare.':'That is '+rupee(-od.spare)+' more than you have left today.')+
+        (od.tomorrow!=null?' Tomorrow\'s allowance would then be '+rupee(od.tomorrow)+'.':'');
+    }else ol.hidden=true;
+  }else{ob.hidden=true;ol.hidden=true;}
   var fc=forecastInfo(key,todayISO(),st.total,budget),fl=$('forecastLine');
   if(fc){
     fl.hidden=false;

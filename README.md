@@ -25,6 +25,7 @@ It works with no internet after the first open. Your entries are stored on your 
 - **Last 6 months:** in Insights, monthly totals side by side.
 - **Colour themes:** under More, Appearance. Original (the default look), Ocean, Sunset and Plum, each with its own light and dark version. Light or dark is chosen separately.
 - **Month at a glance:** a calendar in Insights. Each day is tinted by how it compares with your daily allowance. Tap a day with entries to jump to it in the Log, or an empty day to add an entry for that date.
+- **Day outlook:** under "Left for today" a bar shows what you have spent (solid) and what is still to come today at your usual lunch and dinner prices (striped), with a marker at today's allowance. Below it a line says whether those meals fit and what tomorrow's allowance would be. Meals you have logged or skipped are not counted.
 - **Month-end forecast:** from day 5, a line on Today says where the month will end at your current pace.
 - **What your meals cost:** in Insights, your average lunch and dinner price, the cheapest and dearest weekday, and the time of day you paid least. It appears once you have 6 logged meals of a kind.
 - **Fix amount:** after adding an entry, a button on the confirmation lets you correct it at once.
