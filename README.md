@@ -64,7 +64,7 @@ Open it from the new icon from then on. Always use the same address, because you
 
 - Your entries exist only on this phone. Clearing the browser's site data, uninstalling, or losing the phone deletes them.
 - In the app, open **More**, then **Backup**, then **Share backup**. Send the file to Drive, email, or WhatsApp to yourself. **Download backup** saves it to your phone instead.
-- To restore on the same or a new phone, open **Settings**, then **Import backup**, and pick the file.
+- To restore on the same or a new phone, open **More**, then **Backup**, then **Import backup**, and pick the file. The app checks the file first and shows what is in it. Choose **Merge** to add only the entries this phone does not have yet, or **Replace everything** to swap in the file. Either can be undone for a few seconds. Entries that are damaged or invalid are left out and counted, and a file from a newer version of the app is refused.
 - Use **Plain text**, then **Download .txt** for a readable monthly record.
 
 ## Updating the app later

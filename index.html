@@ -482,7 +482,7 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
               <button class="btn ghost" id="importBtn" type="button">Import backup</button>
               <input type="file" id="importFile" accept="application/json,.json" hidden>
             </div>
-            <p class="hint" style="margin:0">Your entries live only on this phone. Export a backup file every week and keep it in your email or Drive. Importing a backup replaces what is on this phone, and you get a few seconds to undo it.</p>
+            <p class="hint" style="margin:0">Your entries live only on this phone. Export a backup file every week and keep it in your email or Drive. When you import one, you choose whether to merge it with what is on this phone or replace it, and you get a few seconds to undo.</p>
           </div>
         </details>
         <p class="hint">Changes save on their own.</p>
@@ -557,6 +557,25 @@ details.fold.earlier{border-top:1px solid var(--line);margin-top:12px}
   <button type="button" id="navInsights"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Insights</button>
   <button type="button" id="navMore"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>More</button>
 </nav>
+
+<div class="sheetwrap" id="importDlg" hidden>
+  <div class="backdrop" id="impBackdrop"></div>
+  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="impTitle">
+    <div class="sheethead">
+      <h2 id="impTitle">Import backup</h2>
+      <button class="icon" id="impClose" type="button" aria-label="Close">&times;</button>
+    </div>
+    <p id="impFile"></p>
+    <p class="small muted" id="impNow"></p>
+    <p class="err" id="impSkipped" hidden></p>
+    <div class="actions">
+      <button class="btn" id="impMerge" type="button">Merge</button>
+      <button class="btn ghost danger" id="impReplace" type="button">Replace everything</button>
+      <button class="btn ghost" id="impCancel" type="button">Cancel</button>
+    </div>
+    <p class="hint" id="impHint" style="margin:0">Merge keeps everything on this phone and adds only what it does not have yet. Replace swaps this phone's data for the file. You get a few seconds to undo either.</p>
+  </section>
+</div>
 
 <div class="toastwrap"><div class="toast" id="toast" role="status" hidden></div></div>
 
@@ -835,6 +854,108 @@ function outlookBar(allow,spent,exp){
   var c=Math.max(0,spent-allow),dStart=Math.max(allow,spent),dW=total>allow?total-dStart:0;
   return {spentL:0,spentW:pct(a),expL:pct(a),expW:pct(b),overL:pct(allow),overW:pct(c),overExpL:pct(dStart),overExpW:pct(dW),mark:pct(allow)};
 }
+function validISODate(v){
+  if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;
+  var p=v.split('-').map(Number),d=new Date(p[0],p[1]-1,p[2]);
+  return d.getFullYear()===p[0]&&d.getMonth()===p[1]-1&&d.getDate()===p[2];
+}
+function cleanEntry(e,key){
+  if(!e||typeof e!=='object'||!validISODate(e.date)||e.date.slice(0,7)!==key)return null;
+  if(typeof e.amount!=='number'||!isFinite(e.amount)||e.amount<0||e.amount>=1e8)return null;
+  if(typeof e.name!=='string'||!e.name.trim())return null;
+  var o={id:(typeof e.id==='string'&&e.id&&e.id.length<=60)?e.id:null,date:e.date,name:e.name.slice(0,60),amount:round2(e.amount)};
+  o.t=(typeof e.t==='number'&&isFinite(e.t))?e.t:0;
+  o.item=(typeof e.item==='string'&&e.item.length<=60)?e.item:'other';
+  o.group=(typeof e.group==='string'&&e.group)?e.group.slice(0,40):'Other';
+  o.share=(typeof e.share==='number'&&e.share>0&&e.share<=100)?e.share:100;
+  if(typeof e.people==='number'&&e.people>=1&&e.people<=20)o.people=Math.round(e.people);
+  o.paidBy=e.paidBy==='roommate'?'roommate':'me';
+  o.note=typeof e.note==='string'?e.note.slice(0,200):'';
+  return o;
+}
+function inspectBackup(p){
+  if(!p||typeof p!=='object'||p.app!=='daily-spend-log'||!p.docs||typeof p.docs!=='object'||Array.isArray(p.docs))
+    return {ok:false,reason:'That file is not a Spend Log backup.'};
+  if(typeof p.version==='number'&&p.version>1)
+    return {ok:false,reason:'This backup was made by a newer version of the app. Update the app first.'};
+  var docs={},seen={},skipped=0,entries=0,months=0,first=null,last=null,settle=0;
+  Object.keys(p.docs).sort().forEach(function(k){
+    var d=p.docs[k];
+    if(/^m-\d{4}-(0[1-9]|1[0-2])$/.test(k)){
+      if(!d||!Array.isArray(d.entries))return;
+      var keep=[];
+      d.entries.forEach(function(raw,i){
+        var e=cleanEntry(raw,k.slice(2));
+        if(!e){skipped++;return;}
+        if(!e.id)e.id='imp-'+k.slice(2)+'-'+i;
+        if(seen[e.id]){skipped++;return;}
+        seen[e.id]=1;keep.push(e);
+        if(first===null||e.date<first)first=e.date;
+        if(last===null||e.date>last)last=e.date;
+      });
+      if(keep.length){docs[k]={entries:keep};entries+=keep.length;months++;}
+    }else if(k==='settle'){
+      if(!d||!Array.isArray(d.items))return;
+      var items=[],sid={};
+      d.items.forEach(function(x,i){
+        if(!x||typeof x!=='object'||(x.dir!=='got'&&x.dir!=='gave')||typeof x.amount!=='number'||!isFinite(x.amount)||!(x.amount>0)||x.amount>=1e8||!validISODate(x.date)){skipped++;return;}
+        var id=(typeof x.id==='string'&&x.id&&x.id.length<=60)?x.id:'imp-s-'+i;
+        if(sid[id]){skipped++;return;}
+        sid[id]=1;items.push({id:id,date:x.date,amount:round2(x.amount),dir:x.dir});
+      });
+      if(items.length){docs.settle={items:items};settle=items.length;}
+    }else if(k==='settings'){
+      if(d&&typeof d==='object'&&!Array.isArray(d))docs.settings=d;
+    }else if(k==='rec'){
+      if(d&&d.done&&typeof d.done==='object'&&!Array.isArray(d.done)){
+        var done={};
+        Object.keys(d.done).forEach(function(dk){var v=d.done[dk];if(dk.length<=100&&(v===true||v===1||v==='1'))done[dk]=1;});
+        docs.rec={done:done};
+      }
+    }else if(k==='flags'){
+      if(d&&typeof d==='object'&&!Array.isArray(d)){
+        var f={};
+        if(typeof d.repeatedDate==='string'&&validISODate(d.repeatedDate))f.repeatedDate=d.repeatedDate;
+        if(Array.isArray(d.skip))f.skip=d.skip.filter(function(x){return typeof x==='string'&&x.length<=40;}).slice(-40);
+        docs.flags=f;
+      }
+    }
+  });
+  return {ok:true,docs:docs,stats:{entries:entries,months:months,first:first,last:last,settle:settle,skipped:skipped,
+    exportedAt:(typeof p.exportedAt==='string'?p.exportedAt.slice(0,40):null)}};
+}
+function mergeDocs(cur,inc){
+  var out=JSON.parse(JSON.stringify(cur||{})),have={},added=0,dup=0,addedSettle=0;
+  Object.keys(out).forEach(function(k){
+    if(/^m-/.test(k)&&out[k]&&Array.isArray(out[k].entries))out[k].entries.forEach(function(e){if(e&&e.id)have[e.id]=1;});
+  });
+  Object.keys(inc).forEach(function(k){
+    if(!/^m-/.test(k))return;
+    var base=(out[k]&&Array.isArray(out[k].entries))?out[k].entries:[];
+    var add=inc[k].entries.filter(function(e){if(have[e.id]){dup++;return false;}have[e.id]=1;added++;return true;});
+    if(add.length)out[k]={entries:base.concat(add)};
+  });
+  if(inc.settle){
+    var cs=(out.settle&&Array.isArray(out.settle.items))?out.settle.items:[],sh={};
+    cs.forEach(function(x){if(x&&x.id)sh[x.id]=1;});
+    var more=inc.settle.items.filter(function(x){if(sh[x.id])return false;sh[x.id]=1;return true;});
+    if(more.length){out.settle={items:cs.concat(more)};addedSettle=more.length;}
+  }
+  if(inc.rec){
+    var dn=Object.assign({},inc.rec.done,(out.rec&&out.rec.done)||{});
+    out.rec={done:dn};
+  }
+  if(inc.settings){
+    if(!out.settings)out.settings=inc.settings;
+    else if(Array.isArray(inc.settings.items)){
+      var ci=Array.isArray(out.settings.items)?out.settings.items:[],ih={};
+      ci.forEach(function(i){if(i&&i.id)ih[i.id]=1;});
+      var extra=inc.settings.items.filter(function(i){return i&&i.id&&!ih[i.id];});
+      if(extra.length)out.settings=Object.assign({},out.settings,{items:ci.concat(extra)});
+    }
+  }
+  return {docs:out,added:added,dup:dup,addedSettle:addedSettle};
+}
 /*PURE-END*/
 
 var DEFAULTS={
@@ -1003,17 +1124,63 @@ function applyDocs(d){
   writeJSON(KEY,d);
   renderSettings();renderChips();renderAll();updateBackupInfo();
 }
+var importPending=null,importOpener=null;
 function importBackup(file){
+  if(file&&file.size>20*1024*1024){toast('That file is too large to be a Spend Log backup.');return;}
   var r=new FileReader();
   r.onload=function(){
     var p;
     try{p=JSON.parse(String(r.result));}catch(e){p=null;}
-    if(!p||p.app!=='daily-spend-log'||!p.docs||typeof p.docs!=='object'||Array.isArray(p.docs)){toast('That file is not a Spend Log backup.');return;}
-    var prev=state.docs;
-    applyDocs(p.docs);
-    toast('Backup restored.',function(){applyDocs(prev);});
+    var info=inspectBackup(p);
+    if(!info.ok){toast(info.reason);return;}
+    openImportDialog(info);
   };
+  r.onerror=function(){toast('Could not read that file.');};
   r.readAsText(file);
+}
+function plural(n,w){return n+' '+w+(n===1?'':'s');}
+function ent(n){return n+(n===1?' entry':' entries');}
+function openImportDialog(info){
+  var st=info.stats,m=mergeDocs(state.docs,info.docs),now=allEntries().length;
+  importPending={info:info,merge:m};
+  importOpener=document.activeElement;
+  $('impFile').textContent=st.entries===0&&st.settle===0
+    ?'This file has no entries in it.'
+    :'This file has '+ent(st.entries)+(st.first?' from '+monthName(st.first.slice(0,7))+' to '+monthName(st.last.slice(0,7)):'')+(st.settle?' and '+plural(st.settle,'payment')+' with others':'')+'.';
+  $('impNow').textContent='On this phone now: '+ent(now)+'.';
+  var sk=$('impSkipped');
+  sk.hidden=st.skipped===0;
+  sk.textContent=st.skipped?plural(st.skipped,'item')+' in the file could not be read and will be left out.':'';
+  var newCount=m.added+m.addedSettle,mb=$('impMerge');
+  mb.disabled=newCount===0;
+  mb.textContent=newCount===0?'Nothing new to add':'Merge: add '+ent(m.added)+(m.addedSettle?' and '+plural(m.addedSettle,'payment'):'');
+  $('impReplace').textContent='Replace everything with this file';
+  $('importDlg').hidden=false;
+  document.body.classList.add('noscroll');
+  (mb.disabled?$('impCancel'):mb).focus();
+}
+function closeImportDialog(){
+  if($('importDlg').hidden)return;
+  $('importDlg').hidden=true;
+  importPending=null;
+  if(!$('sheet')||$('sheet').hidden)document.body.classList.remove('noscroll');
+  var o=importOpener;importOpener=null;
+  if(o&&o.focus&&document.contains(o)){try{o.focus();}catch(e){}}
+}
+function commitImport(mode){
+  if(!importPending)return;
+  var info=importPending.info,m=importPending.merge,prev=state.docs,next,msg;
+  if(mode==='merge'){
+    next=m.docs;
+    msg='Merged: added '+ent(m.added)+'.';
+  }else{
+    next=Object.assign({},info.docs);
+    if(!next.settings&&prev.settings)next.settings=prev.settings;
+    msg='Backup restored: '+ent(info.stats.entries)+'.';
+  }
+  closeImportDialog();
+  applyDocs(next);
+  toast(msg,function(){applyDocs(prev);});
 }
 
 /* rendering */
@@ -1995,6 +2162,21 @@ $('exportBtn').addEventListener('click',exportBackup);
 $('shareBackupBtn').addEventListener('click',shareBackup);
 $('shareSumBtn').addEventListener('click',shareSummary);
 $('importBtn').addEventListener('click',function(){$('importFile').click();});
+$('impMerge').addEventListener('click',function(){commitImport('merge');});
+$('impReplace').addEventListener('click',function(){commitImport('replace');});
+$('impCancel').addEventListener('click',closeImportDialog);
+$('impClose').addEventListener('click',closeImportDialog);
+$('impBackdrop').addEventListener('click',closeImportDialog);
+document.addEventListener('keydown',function(ev){
+  if($('importDlg').hidden)return;
+  if(ev.key==='Escape'){closeImportDialog();return;}
+  if(ev.key!=='Tab')return;
+  var f=[].slice.call($('importDlg').querySelectorAll('button')).filter(function(b){return !b.disabled;});
+  if(!f.length)return;
+  var first=f[0],last=f[f.length-1];
+  if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus();}
+  else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus();}
+});
 $('importFile').addEventListener('change',function(ev){
   var f=ev.target.files&&ev.target.files[0];
   if(f)importBackup(f);
